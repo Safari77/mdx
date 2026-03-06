@@ -60,7 +60,7 @@ impl MDictSourceLoader {
                 line = skip_utf8_bom(line);
             }
 
-            let trimmed_line = line.trim_end_matches(&['\r', '\n']);
+            let trimmed_line = line.trim_end_matches(['\r', '\n']);
             if trimmed_line.is_empty() {
                 if input_reader.fill_buf()?.is_empty() {
                     //This is the last line of the file, so we can break

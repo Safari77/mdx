@@ -37,10 +37,10 @@ pub struct KeyBlockIndexUnit {
 
 impl RandomAccessable<KeyBlockIndex> for KeyBlockIndexUnit {
     fn get_item(&self, index: usize) -> Result<&KeyBlockIndex> {
-        return Ok(&self.block_indexes[index as usize]);
+        Ok(&self.block_indexes[index])
     }
     fn len(&self) -> usize {
-        return self.block_indexes.len();
+        self.block_indexes.len()
     }
 }
 
@@ -92,7 +92,7 @@ impl KeyBlockIndexUnit {
                 && meta_info.db_info.encryption_type.is_para_encrypted()
             {
                 let mut decryptor =
-                    Salsa20Encryptor::new(meta_info.crypto_key.as_slice(), &vec![0; 8]);
+                    Salsa20Encryptor::new(meta_info.crypto_key.as_slice(), &[0; 8]);
                 let mut decrypted_idx_para = vec![0; idx_para.len()];
                 decryptor.decrypt(&idx_para, &mut decrypted_idx_para)?;
                 idx_para = decrypted_idx_para;
@@ -142,7 +142,7 @@ impl KeyBlockIndexUnit {
         let mut cursor = Cursor::new(block_data);
         let mut block_index_entries: Vec<KeyBlockIndex> = Vec::with_capacity(block_count as usize);
         for _ in 0..block_count {
-            let entry = KeyBlockIndex::from_reader(&mut cursor, &meta_info)?;
+            let entry = KeyBlockIndex::from_reader(&mut cursor, meta_info)?;
             block_index_entries.push(entry);
         }
 
@@ -161,7 +161,7 @@ impl KeyBlockIndexUnit {
         reader: &mut R,
         meta_info: &Rc<MetaUnit>,
     ) -> Result<Self> {
-        let idx_para = Self::read_idx_para_v1_v2(reader, &meta_info)?;
+        let idx_para = Self::read_idx_para_v1_v2(reader, meta_info)?;
         let mut idx_para_reader = UintReader::new(Cursor::new(&idx_para), meta_info.version);
         let key_block_count = idx_para_reader.read_uint()?;
         let record_count = idx_para_reader.read_uint()?;
@@ -176,12 +176,12 @@ impl KeyBlockIndexUnit {
 
         let block_index_data = Self::read_block_index_data(
             reader,
-            &meta_info,
+            meta_info,
             key_index_section_comp_size,
             key_index_section_orig_size,
         )?;
         let (block_index_entries, total_key_count) =
-            Self::read_block_index_entries(&block_index_data, &meta_info, key_block_count as u32)?;
+            Self::read_block_index_entries(&block_index_data, meta_info, key_block_count as u32)?;
 
         if total_key_count != record_count {
             return Err(ZdbError::invalid_data_format(format!(
@@ -203,10 +203,10 @@ impl KeyBlockIndexUnit {
     ) -> crate::Result<Self> {
         let unit_info = UnitInfoSection::from_reader(reader)?;
         //Need to read data_info first for encoding information.
-        let cur_pos = reader.seek(SeekFrom::Current(0))?;
+        let cur_pos = reader.stream_position()?;
         reader.seek(SeekFrom::Current(unit_info.data_section_length as i64))?; //skip to the end of data section
-        let mut data_info = read_data_info_section::<KeyBlockIndexDataInfo, R>(reader, &meta_info)?;
-        let end_of_unit = reader.seek(SeekFrom::Current(0))?;
+        let mut data_info = read_data_info_section::<KeyBlockIndexDataInfo, R>(reader, meta_info)?;
+        let end_of_unit = reader.stream_position()?;
         if data_info.locale_id.is_empty() {
             data_info.locale_id = meta_info.db_info.locale_id.clone();
             // if data_info.locale_id.is_empty() {
@@ -215,9 +215,9 @@ impl KeyBlockIndexUnit {
         }
         //Rollback to the beginning of data section
         reader.seek(SeekFrom::Start(cur_pos))?;
-        let storage_block = StorageBlock::from_reader_v3(reader, &meta_info)?;
+        let storage_block = StorageBlock::from_reader_v3(reader, meta_info)?;
         let (block_index_entries, total_key_count) =
-            Self::read_block_index_entries(&storage_block.data, &meta_info, data_info.block_count)?;
+            Self::read_block_index_entries(&storage_block.data, meta_info, data_info.block_count)?;
         reader.seek(SeekFrom::Start(end_of_unit))?;
         Ok(Self {
             block_indexes: block_index_entries,

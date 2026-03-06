@@ -107,7 +107,7 @@ where
     remove_xml_declaration(&mut raw_xml);
     StorageBlock::to_writer(
         writer,
-        &raw_xml.as_bytes(),
+        raw_xml.as_bytes(),
         crypto_key,
         compression_method,
         encryption_method,

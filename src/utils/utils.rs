@@ -143,12 +143,11 @@ pub fn simple_xml_to_json(xml: &str) -> Result<serde_json::Value> {
 }
 
 pub fn remove_xml_declaration(xml: &mut String) {
-    if xml.starts_with("<?xml") {
-        if let Some(end) = xml.find("?>") {
+    if xml.starts_with("<?xml")
+        && let Some(end) = xml.find("?>") {
             //remove XML declaration
             *xml = xml[end + 2..].trim_start().to_string();
         }
-    }
 }
 
 // Trait for comparison operations
@@ -260,9 +259,9 @@ pub fn binary_search_first<T: KeyComparable + Clone, C: RandomAccessable<T>>(
             result = Some(container.get_item(leftmost_index)?.clone());
         } else if partial_match {
             // If no match found and partial_match is enabled, try with a shorter key
-            if search_key.len() > 0 {
+            if !search_key.is_empty() {
                 search_key.pop();
-                search_sort_key = get_sort_key(&search_key.as_bytes(), meta_info)?;
+                search_sort_key = get_sort_key(search_key.as_bytes(), meta_info)?;
             } else {
                 break;
             }

@@ -86,7 +86,7 @@ impl KeyComparable for KeyIndex {
         if meta_info.is_v3() {
             locale_compare(&self.key, other, start_with, meta_info)
         } else {
-            sort_key_compare(&self.sort_key, &other_sort_key, start_with)
+            sort_key_compare(&self.sort_key, other_sort_key, start_with)
         }
     }
 }
@@ -107,10 +107,10 @@ pub struct KeyBlock {
 
 impl RandomAccessable<KeyIndex> for KeyBlock {
     fn get_item(&self, index: usize) -> Result<&KeyIndex> {
-        return Ok(&self.key_indexes[index]);
+        Ok(&self.key_indexes[index])
     }
     fn len(&self) -> usize {
-        return self.key_indexes.len();
+        self.key_indexes.len()
     }
 }
 
@@ -134,10 +134,10 @@ fn key_str_from_cursor(
         }
     }
     let key_bytes = &cursor.get_ref()[start_pos as usize..end_pos as usize];
-    return Ok((
-        decode_bytes_to_string(key_bytes, &meta_info.encoding_obj)?,
+    Ok((
+        decode_bytes_to_string(key_bytes, meta_info.encoding_obj)?,
         key_bytes.to_vec(),
-    ));
+    ))
 }
 
 impl KeyBlock {
@@ -148,10 +148,10 @@ impl KeyBlock {
         key_block_index: &KeyBlockIndex,
     ) -> Result<Self> {
         let block_data = match meta_info.version {
-            ZdbVersion::V3 => StorageBlock::from_reader_v3(reader, &meta_info)?,
+            ZdbVersion::V3 => StorageBlock::from_reader_v3(reader, meta_info)?,
             ZdbVersion::V2 | ZdbVersion::V1 => StorageBlock::from_reader_v1_v2(
                 reader,
-                &meta_info,
+                meta_info,
                 &meta_info.crypto_key,
                 key_block_index.block_length as u32,
                 key_block_index.raw_data_length as u32,
@@ -164,8 +164,8 @@ impl KeyBlock {
                 ZdbVersion::V3 | ZdbVersion::V2 => cursor.read_u64::<BigEndian>()?,
                 ZdbVersion::V1 => cursor.read_u32::<BigEndian>()? as u64,
             };
-            let (key, key_raw) = key_str_from_cursor(&mut cursor, &meta_info)?;
-            let sort_key = get_sort_key(&key_raw, &meta_info)?;
+            let (key, key_raw) = key_str_from_cursor(&mut cursor, meta_info)?;
+            let sort_key = get_sort_key(&key_raw, meta_info)?;
             let key_index = KeyIndex {
                 key,
                 key_raw,

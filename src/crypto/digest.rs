@@ -53,7 +53,7 @@ pub fn fast_hash_digest(input: &[u8]) -> Result<Vec<u8>> {
     let mut output = Vec::with_capacity(16);
 
     // Calculate length of first part: ceiling of (input length + 1) / 2
-    let first_part_len = (input.len() + 1) / 2;
+    let first_part_len = input.len().div_ceil(2);
 
     // Compute hash1 on first part using XXH64 with seed 0, store in network byte order
     let mut hasher1 = Xxh64::new(0);

@@ -5,7 +5,7 @@
 //! the dictionary configuration.
 
 use std::cmp::min;
-use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{Cursor, Read, Seek, Write};
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
@@ -45,18 +45,18 @@ impl StorageBlock {
     ) -> crate::Result<Self> {
         let mut raw_data = read_exact_to_vec(reader, data_block_length as usize)?;
         if meta_info.is_v2() {
-            let crypto_key = ripemd_digest(&ripemd_digest(&crypto_key)?.as_slice())?;
-            return Self::decode_block(
-                &mut raw_data.as_mut_slice(),
+            let crypto_key = ripemd_digest(ripemd_digest(crypto_key)?.as_slice())?;
+            Self::decode_block(
+                raw_data.as_mut_slice(),
                 &crypto_key,
                 original_data_length,
-            );
+            )
         } else {
-            return Self::decode_block(
-                &mut raw_data.as_mut_slice(),
-                &crypto_key,
+            Self::decode_block(
+                raw_data.as_mut_slice(),
+                crypto_key,
                 original_data_length,
-            );
+            )
         }
     }
 
@@ -92,15 +92,15 @@ impl StorageBlock {
 
             let mut decryptor = get_encryptor(encryption_method, &crypto_key, &[0; 8])?;
             let input = &mut raw_data[0..encrypted_data_length as usize];
-            let mut output = vec![0u8; input.len() as usize];
-            decryptor.decrypt(&input, &mut output)?;
+            let mut output = vec![0u8; input.len()];
+            decryptor.decrypt(input, &mut output)?;
             input.copy_from_slice(&output); //input is part of raw_data, now raw_data is decrypted        
         }
 
         let crc_is_for_compressed_data = encryption_method != EncryptionMethod::None;
         if crc_is_for_compressed_data {
             //Crc is for compressed data, not for encrypted data
-            let alder_crc = adler::adler32_slice(&raw_data);
+            let alder_crc = adler::adler32_slice(raw_data);
             if data_crc != alder_crc {
                 return Err(ZdbError::crc_mismatch(data_crc, alder_crc));
             }
@@ -108,7 +108,7 @@ impl StorageBlock {
 
         let compression_method = CompressionMethod::try_from(compression_encryption & 0x0F)?;
         let decompressor = get_compressor(compression_method);
-        let data = decompressor.decompress(&raw_data, original_data_length as usize)?;
+        let data = decompressor.decompress(raw_data, original_data_length as usize)?;
         if !crc_is_for_compressed_data {
             let alder_crc = adler::adler32_slice(&data);
             if data_crc != alder_crc {
@@ -126,7 +126,7 @@ impl StorageBlock {
         let original_data_length = reader.read_u32::<BigEndian>()?; //original_data_length is the length of uncompressed data length
         let data_block_length = reader.read_u32::<BigEndian>()?; //Data block length is raw compressed data length + header length
         let mut raw_data = read_exact_to_vec(reader, data_block_length as usize)?;
-        return Self::decode_block(&mut raw_data, &meta_info.crypto_key, original_data_length);
+        Self::decode_block(&mut raw_data, &meta_info.crypto_key, original_data_length)
     }
 
     pub fn to_writer<W: Write + Seek>(
@@ -136,9 +136,9 @@ impl StorageBlock {
         compression_method: CompressionMethod,
         encryption_method: EncryptionMethod,
     ) -> crate::Result<u64> {
-        let pos = writer.seek(SeekFrom::Current(0))?;
+        let pos = writer.stream_position()?;
         let compressor = get_compressor(compression_method);
-        let mut encryptor = get_encryptor(encryption_method, &crypto_key, &[0; 8])?;
+        let mut encryptor = get_encryptor(encryption_method, crypto_key, &[0; 8])?;
 
         let mut compression_encryption =
             (compression_method as u8) | (encryption_method as u8) << 4;
@@ -177,6 +177,6 @@ impl StorageBlock {
         writer.write_u16::<BigEndian>(0)?; //reserved
         writer.write_u32::<BigEndian>(data_crc)?; //data_crc
         writer.write_all(&compressed_data)?;
-        Ok(writer.seek(SeekFrom::Current(0))? - pos)
+        Ok(writer.stream_position()? - pos)
     }
 }

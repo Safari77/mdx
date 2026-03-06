@@ -452,10 +452,10 @@ fn read_cstr_with_crc<R: Read>(reader: &mut R) -> Result<String> {
         //if data is utf-16le, return utf-16le string
         if data[0] == b'<' && data[1] == 0 {
             //ZDBV2 use utf-16le for header
-            return decode_bytes_to_string(&data, &encoding_rs::UTF_16LE);
+            return decode_bytes_to_string(&data, encoding_rs::UTF_16LE);
         }
     }
-    return decode_bytes_to_string(&data, &encoding_rs::UTF_8);
+    decode_bytes_to_string(&data, encoding_rs::UTF_8)
 }
 
 impl MetaUnit {
@@ -494,16 +494,16 @@ impl MetaUnit {
             let encrypted_key = hex::decode(db_reg_code).map_err(|e| {
                 ZdbError::invalid_data_format(format!(
                     "Failed to convert hex str:{}",
-                    e.to_string()
+                    e
                 ))
             })?;
             decrypt_salsa20(
                 &encrypted_key,
-                &ripemd_digest(device_id.as_bytes())?.as_slice(),
+                ripemd_digest(device_id.as_bytes())?.as_slice(),
             )?
         } else {
             if version == ZdbVersion::V3 {
-                fast_hash_digest(&db_info.uuid.as_bytes())?
+                fast_hash_digest(db_info.uuid.as_bytes())?
             } else {
                 vec![]
             }

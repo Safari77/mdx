@@ -46,8 +46,8 @@ impl ZipDirectory {
 
         let mut entries = HashMap::new();
         for i in 0..archive.len() {
-            if let Ok(entry) = archive.by_index(i) {
-                if !entry.is_dir() && entry.compression() == zip::CompressionMethod::Stored {
+            if let Ok(entry) = archive.by_index(i)
+                && !entry.is_dir() && entry.compression() == zip::CompressionMethod::Stored {
                     // Only support uncompressed entries for direct access
                     let name = entry.name().to_string();
                     let info = ZipEntryInfo {
@@ -56,7 +56,6 @@ impl ZipDirectory {
                     };
                     entries.insert(name, info);
                 }
-            }
         }
 
         *cache = Some(entries);

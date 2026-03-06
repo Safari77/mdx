@@ -97,9 +97,9 @@ impl<R: Read + Seek> ZdbReader<R> {
         // First create a temporary MetaUnit with content_data_total_length = 0
         let temp_meta = MetaUnit::from_reader(&mut reader, device_id, license_data, 0)?;
         if temp_meta.is_v3() {
-            return ZdbReader::from_reader_v3(reader, temp_meta);
+            ZdbReader::from_reader_v3(reader, temp_meta)
         } else {
-            return ZdbReader::from_reader_v1_v2(reader, temp_meta);
+            ZdbReader::from_reader_v1_v2(reader, temp_meta)
         }
     }
 
@@ -190,7 +190,7 @@ impl<R: Read + Seek> ZdbReader<R> {
                         if key == index.key {
                             //If this index is the same as the key, return it
                             return Ok(Some(index));
-                        } else if index.compare_with(&key, &sort_key, false, &self.meta)?
+                        } else if index.compare_with(key, &sort_key, false, &self.meta)?
                             != Ordering::Equal
                         {
                             break;
@@ -200,7 +200,7 @@ impl<R: Read + Seek> ZdbReader<R> {
                 return Ok(Some(key_index));
             }
         }
-        return Ok(None);
+        Ok(None)
     }
 
     pub fn get_similar_indexes(
@@ -247,7 +247,7 @@ impl<R: Read + Seek> ZdbReader<R> {
             .block_cache
             .peek(&content_block_index.block_offset_in_unit)
         {
-            Rc::clone(&block)
+            Rc::clone(block)
         } else {
             // 读取数据块
             let block = Rc::new(
@@ -297,7 +297,7 @@ impl<R: Read + Seek> ZdbReader<R> {
 
             if bin_content.starts_with(LINK_PREFIX) || bin_content.starts_with(LINK_PREFIX_W) {
                 let content =
-                    decode_bytes_to_string(&bin_content, &self.content.meta_info.encoding_obj)?;
+                    decode_bytes_to_string(&bin_content, self.content.meta_info.encoding_obj)?;
 
                 let target_entry_key = content[LINK_PREFIX.len()..].trim_end();
                 let target_entry_index =
@@ -325,9 +325,9 @@ impl<R: Read + Seek> ZdbReader<R> {
     pub fn get_data_by_key(&mut self, key: &str) -> crate::Result<Option<Vec<u8>>> {
         let key_index = self.find_first_match(key, false, false, true)?;
         if let Some(key_index) = key_index {
-            return Ok(Some(self.get_data(&key_index, true)?));
+            Ok(Some(self.get_data(&key_index, true)?))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 
@@ -359,7 +359,7 @@ impl<R: Read + Seek> ZdbReader<R> {
         content_block.get_string(
             resolved_index.content_offset_in_source,
             self.get_content_length(resolved_index.entry_no)?,
-            &self.content.meta_info.encoding_obj,
+            self.content.meta_info.encoding_obj,
         )
     }
 

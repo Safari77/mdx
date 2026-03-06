@@ -33,7 +33,7 @@ use url::Url;
 
 use crate::Result;
 
-const DEFAULT_BASE_URL: &'static str = "mdx://mdict.cn/service/";
+const DEFAULT_BASE_URL: &str = "mdx://mdict.cn/service/";
 
 /// HTML rewriter for MDX dictionary content.
 pub struct MdxHtmlRewriter;
@@ -114,7 +114,7 @@ impl MdxHtmlRewriter {
             },
         )
         .map_err(|e| {
-            crate::ZdbError::invalid_data_format(&format!("Failed to rewrite HTML: {}", e))
+            crate::ZdbError::invalid_data_format(format!("Failed to rewrite HTML: {}", e))
         })?;
 
         Ok(rewritten)
@@ -154,10 +154,8 @@ impl MdxHtmlRewriter {
 
         // 检查转换映射表
         for (scheme, action, param_name) in PROTOCOL_MAPPINGS {
-            if url.starts_with(scheme) {
+            if let Some(path_with_fragment) = url.strip_prefix(scheme) {
                 // 直接处理原始路径，避免URL库的双重编码
-                let path_with_fragment = &url[scheme.len()..];
-
                 // 分离路径和fragment
                 let (path_part, fragment_part) =
                     if let Some(hash_pos) = path_with_fragment.find('#') {

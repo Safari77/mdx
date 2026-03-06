@@ -63,10 +63,10 @@ impl ContentUnit {
         meta_info: &Rc<MetaUnit>,
     ) -> crate::Result<Self> {
         let info = UnitInfoSection::from_reader(reader)?;
-        let content_data_offset = reader.seek(SeekFrom::Current(0))?;
+        let content_data_offset = reader.stream_position()?;
         // Skip to the end of data section
         reader.seek(SeekFrom::Current(info.data_section_length as i64))?;
-        let data_info = read_data_info_section::<ContentDataInfo, R>(reader, &meta_info)?;
+        let data_info = read_data_info_section::<ContentDataInfo, R>(reader, meta_info)?;
         let record_count = data_info.record_count;
         Ok(Self {
             total_record_count: record_count,
@@ -82,7 +82,7 @@ impl ContentUnit {
         meta_info: &Rc<MetaUnit>,
         content_block_index_unit: &ContentBlockIndexUnit,
     ) -> Result<Self> {
-        let content_data_offset_in_file = reader.seek(SeekFrom::Current(0))?;
+        let content_data_offset_in_file = reader.stream_position()?;
         let record_count = content_block_index_unit.record_count;
         Ok(Self {
             total_record_count: record_count,

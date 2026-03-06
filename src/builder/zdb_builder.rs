@@ -309,7 +309,7 @@ impl ZDBBuilder {
     /// A new ZDBBuilder instance.
     pub fn new(config: &BuilderConfig) -> Self {
         Self {
-            db_header: ZdbHeader::from_config(&config),
+            db_header: ZdbHeader::from_config(config),
             config: config.clone(),
             entries: Vec::new(),
             key_block_indexes: Vec::new(),
@@ -563,7 +563,7 @@ impl ZDBBuilder {
             };
             self.content_block_indexes.push(content_block_index);
             offset_in_source += content_data.len() as u64;
-            offset_in_unit += data_block_size as u64;
+            offset_in_unit += data_block_size;
         }
         unit_builder.write_unit_end(writer, self.entries.len() as u64)?;
         Ok(())

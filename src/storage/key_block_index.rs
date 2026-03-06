@@ -73,7 +73,7 @@ fn read_key<R: Read>(reader: &mut R, meta_info: &MetaUnit) -> Result<Vec<u8>> {
 
     //UTF-16 key length is in char count, we need to convert it to byte count
     if meta_info.db_info.is_utf16 {
-        length = length * 2;
+        length *= 2;
     }
     //Key length dosen't include the terminating zero for all versions
     //We need to read the terminating zero for V2 and V3.
@@ -106,8 +106,8 @@ impl KeyBlockIndex {
             };
         let first_sort_key = get_sort_key(&first_key, meta_info)?;
         let last_sort_key = get_sort_key(&last_key, meta_info)?;
-        let first_key = decode_bytes_to_string(&first_key, &meta_info.encoding_obj)?;
-        let last_key = decode_bytes_to_string(&last_key, &meta_info.encoding_obj)?;
+        let first_key = decode_bytes_to_string(&first_key, meta_info.encoding_obj)?;
+        let last_key = decode_bytes_to_string(&last_key, meta_info.encoding_obj)?;
 
         Ok(Self {
             entry_count_in_block: entry_count,

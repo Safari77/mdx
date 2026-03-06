@@ -137,7 +137,7 @@ pub fn load_string_from_file_with_ext(base_url: &Url, ext: &str) -> Result<Strin
 }
 
 pub fn read_exact_to_vec<R: Read>(reader: &mut R, len: usize) -> crate::Result<Vec<u8>> {
-    let mut buf = Vec::with_capacity(len as usize);
+    let mut buf = Vec::with_capacity(len);
     unsafe {
         buf.set_len(buf.capacity()); // Set length without initializing memory
     }

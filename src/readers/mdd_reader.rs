@@ -110,13 +110,13 @@ impl MddReader {
     pub fn from_url(mdd_url: &Url, device_id: &str) -> Result<Self> {
         let mut zdb_readers = LinkedList::new();
         let license_data = load_string_from_file_with_ext(mdd_url, "key")?;
-        if file_url_exists(&mdd_url) {
+        if file_url_exists(mdd_url) {
             let reader = open_file_url_as_reader(mdd_url)?;
             let zdb_reader =
                 ZdbReader::<BufReader<File>>::from_reader(reader, device_id, &license_data)?;
             zdb_readers.push_back(zdb_reader);
         }
-        let db_name = url_utils::get_decoded_file_stem(&mdd_url)?;
+        let db_name = url_utils::get_decoded_file_stem(mdd_url)?;
 
         let mdd_base_url = mdd_url.clone();
         for i in 1..100 {
@@ -202,6 +202,6 @@ impl MddReader {
                 }
             }
         }
-        return Ok(None);
+        Ok(None)
     }
 }

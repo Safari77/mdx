@@ -105,9 +105,9 @@ impl ProgressState {
             self.current = current;
             let cancelled = (self.reporter.unwrap())(self);
             self.last = current;
-            return cancelled;
+            cancelled
         } else {
-            return false;
+            false
         }
     }
 }

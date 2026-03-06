@@ -76,12 +76,12 @@ pub fn get_decoded_file_name(url: &Url) -> Result<String> {
         .file_name()
         .ok_or(ZdbError::invalid_data_format(format!(
             "Can't find file name in url: {}",
-            url.to_string()
+            url
         )))?
         .to_str()
         .ok_or(ZdbError::invalid_data_format(format!(
             "Invalid unicode encoding in url: {}",
-            url.to_string()
+            url
         )))?;
 
     // Decode percent-encoded characters

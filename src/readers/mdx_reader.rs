@@ -275,9 +275,9 @@ impl MdxReader {
                 processed_source.push(c);
                 let mut number = String::new();
                 let mut has_number = false;
-                while let Some(nc) = chars.next() {
+                for nc in chars.by_ref() {
                     processed_source.push(nc);
-                    if nc.is_digit(10) {
+                    if nc.is_ascii_digit() {
                         number.push(nc);
                     } else if nc == '`' {
                         has_number = !number.is_empty();

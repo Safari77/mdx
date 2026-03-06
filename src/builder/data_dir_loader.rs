@@ -29,7 +29,7 @@ impl DataDirLoader {
         let dir_path = Path::new(&source_dir);
         let mut files = LinkedList::<PathBuf>::new();
         let pattern = regex::Regex::new(r".*").unwrap(); // Match all files
-        scan_dir(&dir_path, &pattern, true, &mut files)?; // recursive scan
+        scan_dir(dir_path, &pattern, true, &mut files)?; // recursive scan
 
         log::debug!("Found {} files to pack", files.len());
         let mut progress_state =
@@ -56,7 +56,7 @@ impl DataDirLoader {
                 content_offset_in_source: 0, // Will be set later during building
                 position: index as u64,
                 content: file_path.to_string_lossy().to_string(), // Store file path in content field
-                content_len: fs::metadata(&file_path)?.len(),
+                content_len: fs::metadata(file_path)?.len(),
                 line_no: 0, //unused for mdd
             };
             entry_records.push(record);

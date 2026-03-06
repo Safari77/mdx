@@ -20,10 +20,10 @@ impl DataLoader for ZdbLoader {
         if !self.input_reader.meta.db_info.is_mdd {
             let content = self.input_reader.get_string(&key_index, false)?;
             if self.compact_stylesheet.is_empty() {
-                return Ok(content.into_bytes());
+                Ok(content.into_bytes())
             } else {
                 let expanded_content = MdxReader::reformat(&content, &self.compact_stylesheet)?;
-                return Ok(expanded_content.into_bytes());
+                Ok(expanded_content.into_bytes())
             }
         } else {
             self.input_reader.get_data(&key_index, false)
@@ -44,7 +44,7 @@ impl ZdbLoader {
             Vec::<ZdbRecord>::with_capacity(zdb_reader.get_entry_count() as usize);
         let mut progress_state = ProgressState::new(
             "ZdbLoader::new",
-            zdb_reader.get_entry_count() as u64,
+            zdb_reader.get_entry_count(),
             5,
             prog_rpt,
         );

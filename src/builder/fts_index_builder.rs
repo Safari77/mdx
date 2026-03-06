@@ -30,11 +30,11 @@ pub struct IndexFields {
 /// Create a new Tantivy index for MDX full-text search
 fn init_index(index_dir_path: &PathBuf) -> Result<(Index, IndexFields)> {
     if index_dir_path.exists() {
-        fs::remove_dir_all(&index_dir_path)?;
+        fs::remove_dir_all(index_dir_path)?;
     }
 
     // Create directory
-    fs::create_dir_all(&index_dir_path)?;
+    fs::create_dir_all(index_dir_path)?;
 
     // Build schema
     let mut schema_builder = Schema::builder();
@@ -51,7 +51,7 @@ fn init_index(index_dir_path: &PathBuf) -> Result<(Index, IndexFields)> {
     let schema = schema_builder.build();
 
     // Create index in the specified directory
-    let index = Index::create_in_dir(&index_dir_path, schema)
+    let index = Index::create_in_dir(index_dir_path, schema)
         .map_err(|e| ZdbError::general_error(e.to_string()))?;
 
     let index_fields = IndexFields {

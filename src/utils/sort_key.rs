@@ -25,15 +25,14 @@ use crate::{Result, ZdbError};
 
 /// Checks if two bytes form a valid Big5 character.
 pub fn is_big5(c1: u8, c2: u8) -> bool {
-    return (c1 >= 0xa1)
-        && (c1 <= 0xf9)
-        && ((c2 >= 0x40) && (c2 <= 0x7e) || (c2 >= 0xa1) && (c2 <= 0xfe));
+    (0xa1..=0xf9).contains(&c1)
+        && ((0x40..=0x7e).contains(&c2) || (0xa1..=0xfe).contains(&c2))
 }
 
 /// Checks if two bytes form a valid GBK character.
 pub fn is_gbk(c1: u8, c2: u8) -> bool {
     let ch = c1 as u16 * 256 + c2 as u16;
-    return (ch > 0x8140 && ch < 0xfefe) && c2 != 0xff;
+    (ch > 0x8140 && ch < 0xfefe) && c2 != 0xff
 }
 
 /// Generates a sort key for a multi-byte encoded string.
@@ -69,13 +68,12 @@ pub fn mb_get_sort_key(
                 continue;
             }
         }
-        if fold_case {
-            if (ch >= b'A') && (ch <= b'Z') {
+        if fold_case
+            && ch.is_ascii_uppercase() {
                 ch = ch - b'A' + b'a';
                 folded_key.push(ch);
                 continue;
             }
-        }
         if alpha_and_digit_only {
             if ch.is_ascii_alphabetic() || ch.is_ascii_digit() || ch > 127 {
                 folded_key.push(ch);
@@ -84,7 +82,7 @@ pub fn mb_get_sort_key(
             folded_key.push(ch);
         }
     }
-    return Ok(folded_key);
+    Ok(folded_key)
 }
 
 /// Generates a sort key for a wide character (UTF-16LE) string.
@@ -103,7 +101,7 @@ pub fn wc_get_sort_key(
     fold_case: bool,
     alpha_and_digit_only: bool,
 ) -> Result<Vec<u8>> {
-    if wc_str.len() % 2 != 0 {
+    if !wc_str.len().is_multiple_of(2) {
         return Err(ZdbError::invalid_data_format(
             "Wide char string length must be even",
         ));
@@ -115,13 +113,12 @@ pub fn wc_get_sort_key(
         let wc = cursor_in.read_u16::<LittleEndian>()?;
         if wc <= 0xff {
             let mut ch = wc as u8;
-            if fold_case {
-                if (ch >= b'A') && (ch <= b'Z') {
+            if fold_case
+                && ch.is_ascii_uppercase() {
                     ch = ch - b'A' + b'a';
                     cursor_out.write_u16::<NativeEndian>(ch as u16)?;
                     continue;
                 }
-            }
             if alpha_and_digit_only {
                 if ch.is_ascii_alphabetic() || ch.is_ascii_digit() || ch > 127 {
                     cursor_out.write_u16::<NativeEndian>(ch as u16)?;
@@ -133,7 +130,7 @@ pub fn wc_get_sort_key(
             cursor_out.write_u16::<NativeEndian>(wc)?;
         }
     }
-    return Ok(folded_key);
+    Ok(folded_key)
 }
 
 pub fn get_sort_key(key: &[u8], meta_info: &MetaUnit) -> Result<Vec<u8>> {

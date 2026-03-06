@@ -69,7 +69,7 @@ impl ZdbUnitBuilder {
         unit_type: UnitType,
     ) -> Result<()> {
         self.unit_info.unit_type = unit_type;
-        self.unit_info_pos = writer.seek(SeekFrom::Current(0))?;
+        self.unit_info_pos = writer.stream_position()?;
         self.unit_info.to_writer(writer)?;
         Ok(())
     }
@@ -99,13 +99,13 @@ impl ZdbUnitBuilder {
     ) -> Result<u64> {
         let block_data_len = StorageBlock::to_writer(
             writer,
-            &block_data,
+            block_data,
             &self.config.crypto_key,
             self.config.compression_method,
             self.config.encryption_method,
         )?;
         self.unit_info.block_count += 1;
-        self.unit_info.data_section_length += block_data_len as u64;
+        self.unit_info.data_section_length += block_data_len;
         self.unit_info.orig_data_section_length += block_data.len() as u64;
         Ok(block_data_len)
     }
@@ -127,7 +127,7 @@ impl ZdbUnitBuilder {
     /// Returns an error if seeking or writing fails.
     pub fn write_unit_end<W: Write + Seek>(&mut self, writer: &mut W, count: u64) -> Result<()> {
         // Rewrite unit info with correct data
-        let data_info_pos = writer.seek(SeekFrom::Current(0))?;
+        let data_info_pos = writer.stream_position()?;
         writer.seek(SeekFrom::Start(self.unit_info_pos))?;
         self.unit_info.to_writer(writer)?;
         writer.seek(SeekFrom::Start(data_info_pos))?;
@@ -136,7 +136,7 @@ impl ZdbUnitBuilder {
             UnitType::KeyBlockIndex => {
                 let data_info = KeyBlockIndexDataInfo {
                     block_count: count as u32,
-                    encoding: encoding,
+                    encoding,
                     locale_id: self.config.default_sorting_locale.clone(),
                 };
                 write_data_info_section(
@@ -150,7 +150,7 @@ impl ZdbUnitBuilder {
             UnitType::Key => {
                 let data_info = KeyDataInfo {
                     key_count: count,
-                    encoding: encoding,
+                    encoding,
                     locale_id: self.config.default_sorting_locale.clone(),
                 };
                 write_data_info_section(
@@ -164,7 +164,7 @@ impl ZdbUnitBuilder {
             UnitType::ContentBlockIndex => {
                 let data_info = ContentBlockIndexDataInfo {
                     record_count: count,
-                    encoding: encoding,
+                    encoding,
                 };
                 write_data_info_section(
                     writer,
@@ -177,7 +177,7 @@ impl ZdbUnitBuilder {
             UnitType::Content => {
                 let data_info = ContentDataInfo {
                     record_count: count,
-                    encoding: encoding,
+                    encoding,
                 };
                 write_data_info_section(
                     writer,

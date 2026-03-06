@@ -89,17 +89,17 @@ impl ContentBlockIndexUnit {
         let info = UnitInfoSection::from_reader(reader)?;
 
         //Need to read data_info first for encoding information.
-        let cur_pos = reader.seek(SeekFrom::Current(0))?;
+        let cur_pos = reader.stream_position()?;
         reader.seek(SeekFrom::Current(info.data_section_length as i64))?; //skip to the end of data section
-        let data_info = read_data_info_section::<ContentBlockIndexDataInfo, R>(reader, &meta_info)?;
-        let end_of_unit = reader.seek(SeekFrom::Current(0))?;
+        let data_info = read_data_info_section::<ContentBlockIndexDataInfo, R>(reader, meta_info)?;
+        let end_of_unit = reader.stream_position()?;
         //Rollback to the beginning of data section
         reader.seek(SeekFrom::Start(cur_pos))?;
-        let block_index_data = StorageBlock::from_reader_v3(reader, &meta_info)?.data;
+        let block_index_data = StorageBlock::from_reader_v3(reader, meta_info)?.data;
         let (block_index_entries, total_original_data_length) = Self::read_block_index_entries(
             &block_index_data,
-            &meta_info,
-            block_index_count as u32,
+            meta_info,
+            block_index_count,
         )?;
         reader.seek(SeekFrom::Start(end_of_unit))?;
         let record_count = data_info.record_count;
@@ -125,7 +125,7 @@ impl ContentBlockIndexUnit {
         drop(idx_para_reader);
         let block_index_data = read_exact_to_vec(reader, content_block_index_size as usize)?;
         let (block_index_entries, total_original_data_length) =
-            Self::read_block_index_entries(&block_index_data, &meta_info, block_count as u32)?;
+            Self::read_block_index_entries(&block_index_data, meta_info, block_count as u32)?;
         Ok(Self {
             record_count,
             block_index_entries,

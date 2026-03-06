@@ -37,7 +37,7 @@ impl KeyUnit {
         meta_info: &Rc<MetaUnit>,
         key_block_index_unit: &KeyBlockIndexUnit,
     ) -> crate::Result<Self> {
-        let key_data_offset = reader.seek(SeekFrom::Current(0))?;
+        let key_data_offset = reader.stream_position()?;
         //Skip to the end of data section
         reader.seek(SeekFrom::Current(
             key_block_index_unit.key_data_unit_size as i64,
@@ -55,10 +55,10 @@ impl KeyUnit {
         meta_info: &Rc<MetaUnit>,
     ) -> crate::Result<Self> {
         let info = UnitInfoSection::from_reader(reader)?;
-        let key_data_offset = reader.seek(SeekFrom::Current(0))?;
+        let key_data_offset = reader.stream_position()?;
         //Skip to the end of data section
         reader.seek(SeekFrom::Current(info.data_section_length as i64))?;
-        let mut data_info = read_data_info_section::<KeyDataInfo, R>(reader, &meta_info)?;
+        let mut data_info = read_data_info_section::<KeyDataInfo, R>(reader, meta_info)?;
         if data_info.locale_id.is_empty() {
             data_info.locale_id = meta_info.db_info.locale_id.clone();
             // if data_info.locale_id.is_empty() {
