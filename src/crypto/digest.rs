@@ -58,7 +58,7 @@ pub fn fast_hash_digest(input: &[u8]) -> Result<Vec<u8>> {
     // Compute hash1 on first part using XXH64 with seed 0, store in network byte order
     let mut hasher1 = Xxh64::new(0);
     hasher1.update(&input[..first_part_len]);
-    output.extend_from_slice( &hasher1.digest().to_be_bytes() ); // Convert to big-endian (network byte order)
+    output.extend_from_slice(&hasher1.digest().to_be_bytes()); // Convert to big-endian (network byte order)
 
     // Compute hash2 on second part if input length > 1, store in network byte order
     if input.len() > 1 {

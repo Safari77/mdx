@@ -15,7 +15,7 @@
 //! use url::Url;
 //!
 //! let url = Url::parse("file:///dict/Oxford%20English.mdx")?;
-//! 
+//!
 //! // Extract the file name
 //! let file_name = url_utils::get_decoded_file_name(&url)?;
 //! assert_eq!(file_name, "Oxford English.mdx");
@@ -34,7 +34,6 @@ use url::Url;
 use crate::utils::io_utils::fix_windows_path;
 use crate::{Result, ZdbError};
 
-
 pub fn get_decoded_path(url: &Url) -> Result<PathBuf> {
     let path_str = get_decoded_path_str(url)?;
     Ok(PathBuf::from(path_str))
@@ -42,11 +41,9 @@ pub fn get_decoded_path(url: &Url) -> Result<PathBuf> {
 
 pub fn get_decoded_path_str(url: &Url) -> Result<String> {
     let path = fix_windows_path(url.path());
-    let decoded_path = percent_decode_str(&path)
-        .decode_utf8()?;
+    let decoded_path = percent_decode_str(&path).decode_utf8()?;
     Ok(decoded_path.to_string())
 }
-
 
 /// Extracts and decodes the file name from a URL
 ///
@@ -189,10 +186,10 @@ pub fn join_url_path(first_url: &Url, second_url: &Url) -> Result<Url> {
 
     // Get the path from the first URL
     let first_path = first_url.path();
-    
+
     // Get the path from the second URL
     let second_path = second_url.path();
-        
+
     // Use join_path to combine the first URL's path (without filename) with second URL's path
     let joined_path = join_path(first_path, second_path);
 
@@ -233,14 +230,14 @@ pub fn join_path(base_path: &str, second_path: &str) -> String {
     // Remove filename from base_path
     let base_without_filename = if let Some(last_slash) = base_path.rfind('/') {
         if last_slash == 0 {
-            "/"  // Keep root if it's just "/"
+            "/" // Keep root if it's just "/"
         } else {
-            &base_path[..last_slash + 1]  // Include the trailing slash
+            &base_path[..last_slash + 1] // Include the trailing slash
         }
     } else {
-        base_path  // No slash found, use as-is
+        base_path // No slash found, use as-is
     };
-    
+
     // Ensure base path ends with "/" (except for root)
     let base_dir = if base_without_filename == "/" {
         "/".to_string()
@@ -249,7 +246,7 @@ pub fn join_path(base_path: &str, second_path: &str) -> String {
     } else {
         format!("{}/", base_without_filename)
     };
-    
+
     // Join with second path
     if second_path.starts_with('/') {
         // Remove leading slash from second path and join
@@ -286,18 +283,25 @@ mod tests {
             ("/", "new/path", "/new/path"),
             ("/", "/new/path", "/new/path"),
             ("/base/file.txt", "subdir/file.txt", "/base/subdir/file.txt"),
-            ("/base/file.txt", "/subdir/file.txt", "/base/subdir/file.txt"),
+            (
+                "/base/file.txt",
+                "/subdir/file.txt",
+                "/base/subdir/file.txt",
+            ),
             ("/base/", "subdir/file.txt", "/base/subdir/file.txt"),
             ("/base/", "/subdir/file.txt", "/base/subdir/file.txt"),
             ("/file.txt", "new/path", "/new/path"),
             ("/file.txt", "/new/path", "/new/path"),
-            ("file.txt", "new/path", "file.txt/new/path"),  // No leading slash case
+            ("file.txt", "new/path", "file.txt/new/path"), // No leading slash case
         ];
 
         for (base, second, expected) in test_cases {
             let result = join_path(base, second);
-            assert_eq!(result, expected, "join_path({:?}, {:?}) should be {:?}, got {:?}", 
-                      base, second, expected, result);
+            assert_eq!(
+                result, expected,
+                "join_path({:?}, {:?}) should be {:?}, got {:?}",
+                base, second, expected, result
+            );
         }
     }
 }
@@ -332,7 +336,7 @@ mod tests {
 ///     ("https://example.com/file.tar.gz", "bz2", "https://example.com/file.tar.bz2"),
 ///     ("https://example.com/file", ".jpg", "https://example.com/file.jpg"),
 ///     ("https://example.com/", "jpg", "https://example.com/.jpg"),
-///     ("file://localhost/file.txt", "jpg", "file:///file.jpg"), 
+///     ("file://localhost/file.txt", "jpg", "file:///file.jpg"),
 ///     //file://localhost/file.txt is a special case, it will be converted to file:///file.txt
 /// ];
 ///
@@ -382,7 +386,13 @@ pub fn with_extension(url: &Url, new_ext: &str) -> Result<Url> {
 }
 
 pub fn replace_url_path<P: AsRef<Path>>(url: &Url, path: P) -> Result<Url> {
-    let path_str = path.as_ref().to_str().ok_or(ZdbError::invalid_data_format(format!("Invalid path: {}", path.as_ref().to_string_lossy())))?;
+    let path_str = path
+        .as_ref()
+        .to_str()
+        .ok_or(ZdbError::invalid_data_format(format!(
+            "Invalid path: {}",
+            path.as_ref().to_string_lossy()
+        )))?;
     let mut parsed_url = url.clone();
     parsed_url.set_path(path_str);
     Ok(parsed_url)

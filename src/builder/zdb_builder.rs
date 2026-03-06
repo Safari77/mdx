@@ -94,15 +94,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::builder::data_loader::ZdbRecord;
 use crate::builder::zdb_unit_builder::ZdbUnitBuilder;
-use crate::utils::compression::CompressionMethod;
-use crate::storage::content_block_index_unit::ContentBlockIndex;
 use crate::crypto::digest::fast_hash_digest;
 use crate::crypto::encryption::EncryptionMethod;
-use crate::utils::icu_wrapper::UCollator;
+use crate::storage::content_block_index_unit::ContentBlockIndex;
 use crate::storage::key_block::EntryNo;
 use crate::storage::key_block_index::KeyBlockIndex;
-use crate::utils::progress_report::{ProgressReportFn, ProgressState};
 use crate::storage::unit_base::UnitType;
+use crate::utils::compression::CompressionMethod;
+use crate::utils::icu_wrapper::UCollator;
+use crate::utils::progress_report::{ProgressReportFn, ProgressState};
 use crate::utils::remove_xml_declaration;
 use crate::{Result, ZdbError};
 
@@ -114,7 +114,7 @@ pub enum SourceType {
     /// SGD format (105)
     Sgd = 105,
     /// Compact MDX format (106)
-    MdictCompact = 106, 
+    MdictCompact = 106,
     /// MDX HTML format (107)
     MdictHtml = 107,
     /// SugarDict with phonetic (110)
@@ -134,7 +134,7 @@ pub enum SourceType {
 /// Contains all parameters needed to build a dictionary file,
 /// including input/output paths, compression settings, and metadata.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BuilderConfig{
+pub struct BuilderConfig {
     /// Path to the input source file or directory
     pub input_path: String,
     /// Path to the output ZDB file
@@ -174,8 +174,8 @@ pub struct BuilderConfig{
 impl Default for BuilderConfig {
     fn default() -> Self {
         BuilderConfig {
-            preferred_content_block_size: 64*1024,
-            preferred_key_block_size: 16*1024,
+            preferred_content_block_size: 64 * 1024,
+            preferred_key_block_size: 16 * 1024,
             compression_method: CompressionMethod::Deflate,
             encryption_method: EncryptionMethod::Salsa20,
             build_mdd: false,
@@ -198,7 +198,7 @@ impl Default for BuilderConfig {
 /// describing the dictionary file properties and generation information.
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename = "ZDB")]
-pub struct ZdbHeader{
+pub struct ZdbHeader {
     /// Engine version that generated this file (typically "3.0")
     #[serde(rename = "@GeneratedByEngineVersion")]
     pub generated_by_engine_version: String,
@@ -231,7 +231,7 @@ pub struct ZdbHeader{
     pub default_sorting_locale: String,
 }
 
-impl ZdbHeader{
+impl ZdbHeader {
     /// Creates a ZDB header from build configuration.
     ///
     /// # Arguments
@@ -246,11 +246,15 @@ impl ZdbHeader{
             generated_by_engine_version: "3.0".to_string(),
             required_engine_version: "3.0".to_string(),
             compact: false,
-            register_by: if config.register_by_email {"Yes".to_string()} else {"No".to_string()},
+            register_by: if config.register_by_email {
+                "Yes".to_string()
+            } else {
+                "No".to_string()
+            },
             creation_date: String::new(), // Should be the current date when generating the zdb
             data_source_format: config.data_source_format as u32,
             style_sheet: String::new(), // Not used anymore
-            uuid: String::new(), // Should be calculated when generating the zdb
+            uuid: String::new(),        // Should be calculated when generating the zdb
             content_type: config.content_type.clone(),
             default_sorting_locale: config.default_sorting_locale.clone(),
         }
@@ -262,7 +266,7 @@ impl ZdbHeader{
 /// Orchestrates the process of building a complete ZDB file from entries,
 /// managing key blocks, content blocks, indexes, and metadata.
 #[derive(Debug, Clone)]
-pub struct ZDBBuilder{
+pub struct ZDBBuilder {
     /// All dictionary entries to be indexed
     pub entries: Vec<ZdbRecord>,
     /// Header metadata for the dictionary
@@ -277,14 +281,14 @@ pub struct ZDBBuilder{
     pub total_key_index_data_size: u64,
 }
 
-fn write_key<W:Write>(writer: &mut W, key: &[u8]) -> Result<()> {
+fn write_key<W: Write>(writer: &mut W, key: &[u8]) -> Result<()> {
     writer.write_u16::<BigEndian>(key.len() as u16)?; // Key length doesn't include the terminating zero
     writer.write_all(key)?;
     writer.write_u8(0)?; // Append a ending zero
     Ok(())
 }
 
-fn write_key_block_index<W:Write>(writer: &mut W, key_block_index: &KeyBlockIndex) -> Result<()> {
+fn write_key_block_index<W: Write>(writer: &mut W, key_block_index: &KeyBlockIndex) -> Result<()> {
     writer.write_u32::<BigEndian>(key_block_index.entry_count_in_block as u32)?;
     write_key(writer, key_block_index.first_key.as_bytes())?;
     write_key(writer, key_block_index.last_key.as_bytes())?;
@@ -316,25 +320,36 @@ impl ZDBBuilder {
 
     pub fn prepare_key_index(&mut self) -> Result<()> {
         //Sort data entries by collator
-        let locale_id=self.config.default_sorting_locale.clone();
+        let locale_id = self.config.default_sorting_locale.clone();
         //locale_id.push_str("-kc-true-kf-upper"); //Force to sort uppercase first, Just to make the display order more consistent
-        let collator=UCollator::try_from(locale_id.as_str())?;
+        let collator = UCollator::try_from(locale_id.as_str())?;
         debug!("Sorting entries by locale: {}", locale_id);
-        self.entries.sort_by(
-            |a, b| collator.strcoll_utf8(a.key.as_str(), b.key.as_str()).unwrap()
-        );
+        self.entries.sort_by(|a, b| {
+            collator
+                .strcoll_utf8(a.key.as_str(), b.key.as_str())
+                .unwrap()
+        });
         debug!("Sorting entries by locale: done");
         Ok(())
     }
 
-    pub fn prepare_key_block_index_unit(&mut self, preferred_block_size: u64, prog_rpt: Option<ProgressReportFn>) -> Result<()> {
+    pub fn prepare_key_block_index_unit(
+        &mut self,
+        preferred_block_size: u64,
+        prog_rpt: Option<ProgressReportFn>,
+    ) -> Result<()> {
         let mut i = 0;
         let extra_size: u64 = 1 + 8; // 1 byte ending zero + 8 bytes record offset
         let total = self.entries.len();
         let mut total_key_index_data_size: u64 = 0;
-        let mut key_block_indexes = Vec::with_capacity(total/300);
+        let mut key_block_indexes = Vec::with_capacity(total / 300);
 
-        let mut progress_state = ProgressState::new("ZDBBuilder::prepare_key_block_index_unit", total as u64, 10, prog_rpt);
+        let mut progress_state = ProgressState::new(
+            "ZDBBuilder::prepare_key_block_index_unit",
+            total as u64,
+            10,
+            prog_rpt,
+        );
 
         while i < total {
             let mut block_size: u64 = 0;
@@ -353,7 +368,8 @@ impl ZDBBuilder {
                 i += 1;
             }
             key_block_index.last_key = self.entries[i - 1].key.clone();
-            key_block_index.entry_count_in_block = i as u64 - key_block_index.first_entry_no_in_block as u64;
+            key_block_index.entry_count_in_block =
+                i as u64 - key_block_index.first_entry_no_in_block as u64;
             key_block_index.block_length = block_size;
             key_block_indexes.push(key_block_index.clone());
 
@@ -364,7 +380,7 @@ impl ZDBBuilder {
                 return Err(ZdbError::user_interrupted());
             }
         }
-        
+
         self.key_block_indexes = key_block_indexes;
         self.total_key_index_data_size = total_key_index_data_size;
         Ok(())
@@ -373,37 +389,46 @@ impl ZDBBuilder {
     pub fn build_db_header<W: Write>(&mut self, writer: &mut W) -> Result<()> {
         self.db_header.creation_date = chrono::Utc::now().format("%Y-%m-%d").to_string();
         self.db_header.uuid = uuid::Uuid::new_v4().to_string();
-        self.config.crypto_key = if self.config.password.is_empty(){
-            debug!("uuid:{}",self.db_header.uuid);
+        self.config.crypto_key = if self.config.password.is_empty() {
+            debug!("uuid:{}", self.db_header.uuid);
             fast_hash_digest(self.db_header.uuid.as_bytes())?
         } else {
             fast_hash_digest(self.config.password.as_bytes())?
         };
-        debug!("crypto_key:{}",hex::encode(&self.config.crypto_key));
+        debug!("crypto_key:{}", hex::encode(&self.config.crypto_key));
         let mut header_str = serde_xml_rs::to_string(&self.db_header)?;
         remove_xml_declaration(&mut header_str);
         writer.write_u32::<BigEndian>(header_str.len() as u32 + 1)?;
         let mut header_bytes = header_str.as_bytes().to_vec();
         header_bytes.push(0);
         writer.write_all(&header_bytes)?;
-        let adler = adler::adler32_slice(&header_bytes );
+        let adler = adler::adler32_slice(&header_bytes);
         writer.write_u32::<LittleEndian>(adler)?;
         Ok(())
     }
-    
-    pub fn build_key_block_index_unit<W: Write+Seek>(&mut self, writer: &mut W, prog_rpt: Option<ProgressReportFn>) -> Result<()> {
 
+    pub fn build_key_block_index_unit<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        prog_rpt: Option<ProgressReportFn>,
+    ) -> Result<()> {
         if self.entries.is_empty() {
             return Err(ZdbError::invalid_parameter("No entries"));
         }
         let mut unit_builder = ZdbUnitBuilder::from_config(&self.config);
 
-        let mut progress_state = ProgressState::new("ZDBBuilder::build_key_block_index_unit", self.key_block_indexes.len() as u64, 10, prog_rpt);
-        unit_builder.write_unit_begin(writer, UnitType::KeyBlockIndex)?;        
-        let mut key_block_indexes_data = Vec::<u8>::with_capacity(self.key_block_indexes.len()*100);
+        let mut progress_state = ProgressState::new(
+            "ZDBBuilder::build_key_block_index_unit",
+            self.key_block_indexes.len() as u64,
+            10,
+            prog_rpt,
+        );
+        unit_builder.write_unit_begin(writer, UnitType::KeyBlockIndex)?;
+        let mut key_block_indexes_data =
+            Vec::<u8>::with_capacity(self.key_block_indexes.len() * 100);
         for (n, key_block_index) in self.key_block_indexes.iter().enumerate() {
             write_key_block_index(&mut key_block_indexes_data, key_block_index)?;
-            if progress_state.report(n as u64){
+            if progress_state.report(n as u64) {
                 info!("Buil key block index unit cancelled by user");
                 return Err(ZdbError::user_interrupted());
             }
@@ -414,16 +439,27 @@ impl ZDBBuilder {
         Ok(())
     }
 
-    pub fn build_key_block_unit<W: Write+Seek>(&mut self, writer: &mut W, prog_rpt: Option<ProgressReportFn>) -> Result<()> {
+    pub fn build_key_block_unit<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        prog_rpt: Option<ProgressReportFn>,
+    ) -> Result<()> {
         let mut unit_builder = ZdbUnitBuilder::from_config(&self.config);
 
-        let mut progress_state = ProgressState::new("ZDBBuilder::build_key_block_unit", self.key_block_indexes.len() as u64, 10, prog_rpt);
+        let mut progress_state = ProgressState::new(
+            "ZDBBuilder::build_key_block_unit",
+            self.key_block_indexes.len() as u64,
+            10,
+            prog_rpt,
+        );
         unit_builder.write_unit_begin(writer, UnitType::Key)?;
 
         for (i, key_block_index) in self.key_block_indexes.iter_mut().enumerate() {
-            let mut key_block_data = Vec::<u8>::with_capacity(self.config.preferred_key_block_size as usize);
+            let mut key_block_data =
+                Vec::<u8>::with_capacity(self.config.preferred_key_block_size as usize);
             for j in 0..key_block_index.entry_count_in_block {
-                let entry = &self.entries[(key_block_index.first_entry_no_in_block as u64 + j )as usize];
+                let entry =
+                    &self.entries[(key_block_index.first_entry_no_in_block as u64 + j) as usize];
                 key_block_data.write_u64::<BigEndian>(entry.content_offset_in_source)?;
                 key_block_data.write_all(entry.key.as_bytes())?;
                 key_block_data.write_u8(0)?;
@@ -443,15 +479,27 @@ impl ZDBBuilder {
         Ok(())
     }
 
-    pub fn build_content_block_index_unit<W: Write+Seek>(&mut self, writer: &mut W, prog_rpt: Option<ProgressReportFn>) -> Result<()> {
+    pub fn build_content_block_index_unit<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        prog_rpt: Option<ProgressReportFn>,
+    ) -> Result<()> {
         let mut unit_builder = ZdbUnitBuilder::from_config(&self.config);
-        let mut progress_state = ProgressState::new("ZDBBuilder::build_content_block_index_unit", self.content_block_indexes.len() as u64, 10, prog_rpt);
+        let mut progress_state = ProgressState::new(
+            "ZDBBuilder::build_content_block_index_unit",
+            self.content_block_indexes.len() as u64,
+            10,
+            prog_rpt,
+        );
         unit_builder.write_unit_begin(writer, UnitType::ContentBlockIndex)?;
-        let mut content_block_index_data = Vec::<u8>::with_capacity(self.content_block_indexes.len()*16);
+        let mut content_block_index_data =
+            Vec::<u8>::with_capacity(self.content_block_indexes.len() * 16);
         for (n, content_block_index) in self.content_block_indexes.iter().enumerate() {
-            content_block_index_data.write_u64::<BigEndian>(content_block_index.block_compressed_length)?;
-            content_block_index_data.write_u64::<BigEndian>(content_block_index.block_original_length)?;
-            if progress_state.report(n as u64){
+            content_block_index_data
+                .write_u64::<BigEndian>(content_block_index.block_compressed_length)?;
+            content_block_index_data
+                .write_u64::<BigEndian>(content_block_index.block_original_length)?;
+            if progress_state.report(n as u64) {
                 info!("Buil content block index unit cancelled by user");
                 return Err(ZdbError::user_interrupted());
             }
@@ -461,19 +509,30 @@ impl ZDBBuilder {
         Ok(())
     }
 
-    pub fn build_content_unit<W: Write+Seek, L: FnMut(&ZdbRecord) -> Result<Vec<u8>>>(&mut self, writer: &mut W, mut data_loader:L, prog_rpt: Option<ProgressReportFn>) -> Result<()> {
-        let mut progress_state = ProgressState::new("ZDBBuilder::build_content_unit", self.entries.len() as u64, 10, prog_rpt);
+    pub fn build_content_unit<W: Write + Seek, L: FnMut(&ZdbRecord) -> Result<Vec<u8>>>(
+        &mut self,
+        writer: &mut W,
+        mut data_loader: L,
+        prog_rpt: Option<ProgressReportFn>,
+    ) -> Result<()> {
+        let mut progress_state = ProgressState::new(
+            "ZDBBuilder::build_content_unit",
+            self.entries.len() as u64,
+            10,
+            prog_rpt,
+        );
         let mut unit_builder = ZdbUnitBuilder::from_config(&self.config);
         unit_builder.write_unit_begin(writer, UnitType::Content)?;
         self.content_block_indexes.clear();
         let mut offset_in_source = 0;
         let mut offset_in_unit = 0;
         let total_entries = self.entries.len();
-        let mut content_data = Vec::<u8>::with_capacity(self.config.preferred_content_block_size as usize);
+        let mut content_data =
+            Vec::<u8>::with_capacity(self.config.preferred_content_block_size as usize);
 
         let mut i = 0;
         let mut content_offset_in_source = 0;
-        while  i < total_entries {
+        while i < total_entries {
             content_data.clear();
             while i < total_entries {
                 let entry = &mut self.entries[i];
@@ -482,21 +541,21 @@ impl ZDBBuilder {
                 content_offset_in_source += content.len() as u64;
                 content_data.extend(content);
                 i += 1;
-                //Because we don't know the real content length before loading it. 
+                //Because we don't know the real content length before loading it.
                 //So we need to break the loop when the content data length is greater than the preferred block size.
                 if content_data.len() > self.config.preferred_content_block_size as usize {
                     break;
-                }   
+                }
             }
 
-            let data_block_size= unit_builder.output_block(writer, &content_data)?;
+            let data_block_size = unit_builder.output_block(writer, &content_data)?;
 
             if progress_state.report(i as u64) {
                 info!("Buil content unit cancelled by user");
                 return Err(ZdbError::user_interrupted());
             }
-    
-            let content_block_index = ContentBlockIndex{
+
+            let content_block_index = ContentBlockIndex {
                 block_offset_in_source: offset_in_source,
                 block_offset_in_unit: offset_in_unit,
                 block_original_length: content_data.len() as u64,
@@ -516,7 +575,7 @@ impl ZDBBuilder {
         mut zdb_writer: std::io::BufWriter<std::fs::File>,
         mut data_loader: T,
         entry_records: Vec<ZdbRecord>,
-        prog_rpt: Option<ProgressReportFn>
+        prog_rpt: Option<ProgressReportFn>,
     ) -> Result<()> {
         // Load entries from data loader
         zdb_builder.entries = entry_records;
@@ -526,7 +585,10 @@ impl ZDBBuilder {
         info!("done");
 
         info!("Preparing key index...");
-        zdb_builder.prepare_key_block_index_unit(zdb_builder.config.preferred_key_block_size as u64, prog_rpt)?;
+        zdb_builder.prepare_key_block_index_unit(
+            zdb_builder.config.preferred_key_block_size as u64,
+            prog_rpt,
+        )?;
         info!("done");
 
         info!("Building content unit...");
@@ -617,44 +679,72 @@ impl ZDBBuilder {
     /// - Source format is not supported
     /// - Data corruption is detected
     /// - Compression/encryption fails
-    pub fn build_with_config(config: &BuilderConfig, prog_rpt: Option<ProgressReportFn>) -> Result<()> {
+    pub fn build_with_config(
+        config: &BuilderConfig,
+        prog_rpt: Option<ProgressReportFn>,
+    ) -> Result<()> {
         use std::fs::File;
         use std::io::BufWriter;
-        
+
         let mut zdb_builder = ZDBBuilder::new(config);
         let mut zdb_writer = BufWriter::new(File::create(&zdb_builder.config.output_file)?);
         zdb_builder.build_db_header(&mut zdb_writer)?;
 
         info!("Loading source: {}...", config.input_path);
 
-
         // Create appropriate data loader based on SourceType and build
         match config.data_source_format {
             SourceType::MdictHtml => {
                 use crate::builder::mdict_source_loader::MDictSourceLoader;
-                let (data_loader, entry_records) = MDictSourceLoader::new(&config.input_path, prog_rpt)?;
-                Self::build_with_data_loader(zdb_builder, zdb_writer, data_loader, entry_records, prog_rpt)
-            },
+                let (data_loader, entry_records) =
+                    MDictSourceLoader::new(&config.input_path, prog_rpt)?;
+                Self::build_with_data_loader(
+                    zdb_builder,
+                    zdb_writer,
+                    data_loader,
+                    entry_records,
+                    prog_rpt,
+                )
+            }
             SourceType::Zdb => {
                 use crate::builder::zdb_loader::ZdbLoader;
-                let (data_loader, entry_records) = ZdbLoader::new(&config.input_path, &config.device_id, &config.password, prog_rpt)?;
-                
+                let (data_loader, entry_records) = ZdbLoader::new(
+                    &config.input_path,
+                    &config.device_id,
+                    &config.password,
+                    prog_rpt,
+                )?;
+
                 // Update sorting locale if empty and source is ZDB
                 if zdb_builder.config.default_sorting_locale.is_empty() {
-                    zdb_builder.config.default_sorting_locale = 
+                    zdb_builder.config.default_sorting_locale =
                         data_loader.input_reader.meta.db_info.locale_id.clone();
                 }
-                
-                Self::build_with_data_loader(zdb_builder, zdb_writer, data_loader, entry_records, prog_rpt)
-            },
+
+                Self::build_with_data_loader(
+                    zdb_builder,
+                    zdb_writer,
+                    data_loader,
+                    entry_records,
+                    prog_rpt,
+                )
+            }
             SourceType::Directory => {
                 use crate::builder::data_dir_loader::DataDirLoader;
-                let (data_loader, entry_records) = DataDirLoader::new(&config.input_path, prog_rpt)?;
-                Self::build_with_data_loader(zdb_builder, zdb_writer, data_loader, entry_records, prog_rpt)
-            },
-            _ => {
-                Err(ZdbError::invalid_data_format(format!("Unsupported source format: {:?}", config.data_source_format)))
+                let (data_loader, entry_records) =
+                    DataDirLoader::new(&config.input_path, prog_rpt)?;
+                Self::build_with_data_loader(
+                    zdb_builder,
+                    zdb_writer,
+                    data_loader,
+                    entry_records,
+                    prog_rpt,
+                )
             }
+            _ => Err(ZdbError::invalid_data_format(format!(
+                "Unsupported source format: {:?}",
+                config.data_source_format
+            ))),
         }
     }
 }

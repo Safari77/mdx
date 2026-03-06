@@ -10,7 +10,7 @@ use crate::storage::key_block::KeyBlock;
 use crate::storage::key_block_index::KeyBlockIndex;
 use crate::storage::key_block_index_unit::KeyBlockIndexUnit;
 use crate::storage::meta_unit::MetaUnit;
-use crate::storage::unit_base::{read_data_info_section, UnitInfoSection};
+use crate::storage::unit_base::{UnitInfoSection, read_data_info_section};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename = "KeyData")]
@@ -31,22 +31,30 @@ pub struct KeyUnit {
     pub meta_info: Rc<MetaUnit>,
 }
 
-
 impl KeyUnit {
-    pub fn from_reader_v1_v2<R: Read+Seek>(reader: &mut R, meta_info: &Rc<MetaUnit>, key_block_index_unit: &KeyBlockIndexUnit) -> crate::Result<Self> {
+    pub fn from_reader_v1_v2<R: Read + Seek>(
+        reader: &mut R,
+        meta_info: &Rc<MetaUnit>,
+        key_block_index_unit: &KeyBlockIndexUnit,
+    ) -> crate::Result<Self> {
         let key_data_offset = reader.seek(SeekFrom::Current(0))?;
         //Skip to the end of data section
-        reader.seek(SeekFrom::Current(key_block_index_unit.key_data_unit_size as i64))?;
+        reader.seek(SeekFrom::Current(
+            key_block_index_unit.key_data_unit_size as i64,
+        ))?;
         let key_count = key_block_index_unit.total_key_count;
-        Ok(Self { 
-            total_key_count: key_count, 
-            block_cache: RefCell::new(LruCache::new(NonZeroUsize::new(16).unwrap())), 
+        Ok(Self {
+            total_key_count: key_count,
+            block_cache: RefCell::new(LruCache::new(NonZeroUsize::new(16).unwrap())),
             meta_info: meta_info.clone(),
             key_data_offset,
         })
     }
-    pub fn from_reader_v3<R: Read+Seek>(reader: &mut R, meta_info: &Rc<MetaUnit>) -> crate::Result<Self> {
-        let info = UnitInfoSection::from_reader(reader)?;  
+    pub fn from_reader_v3<R: Read + Seek>(
+        reader: &mut R,
+        meta_info: &Rc<MetaUnit>,
+    ) -> crate::Result<Self> {
+        let info = UnitInfoSection::from_reader(reader)?;
         let key_data_offset = reader.seek(SeekFrom::Current(0))?;
         //Skip to the end of data section
         reader.seek(SeekFrom::Current(info.data_section_length as i64))?;
@@ -58,15 +66,15 @@ impl KeyUnit {
             // }
         }
         let key_count = data_info.key_count;
-        Ok(Self { 
-            total_key_count: key_count, 
-            block_cache: RefCell::new(LruCache::new(NonZeroUsize::new(16).unwrap())), 
+        Ok(Self {
+            total_key_count: key_count,
+            block_cache: RefCell::new(LruCache::new(NonZeroUsize::new(16).unwrap())),
             meta_info: meta_info.clone(),
             key_data_offset,
         })
     }
 
-    pub fn get_key_block<R: Read+Seek>(
+    pub fn get_key_block<R: Read + Seek>(
         &self,
         reader: &mut R,
         key_block_index: &KeyBlockIndex,
@@ -76,9 +84,14 @@ impl KeyUnit {
             return Ok(Rc::clone(key_block));
         }
         reader.seek(SeekFrom::Start(block_offset + self.key_data_offset))?;
-        let key_block = Rc::new(RefCell::new(KeyBlock::from_reader(reader, &self.meta_info, key_block_index)?));
-        self.block_cache.borrow_mut().put(block_offset, key_block.clone());
+        let key_block = Rc::new(RefCell::new(KeyBlock::from_reader(
+            reader,
+            &self.meta_info,
+            key_block_index,
+        )?));
+        self.block_cache
+            .borrow_mut()
+            .put(block_offset, key_block.clone());
         Ok(key_block)
     }
 }
-        

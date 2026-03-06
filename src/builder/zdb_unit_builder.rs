@@ -6,14 +6,14 @@
 
 use std::io::{Seek, SeekFrom, Write};
 
+use crate::Result;
 use crate::builder::zdb_builder::BuilderConfig;
 use crate::storage::content_block_index_unit::ContentBlockIndexDataInfo;
 use crate::storage::content_unit::ContentDataInfo;
 use crate::storage::key_block_index_unit::KeyBlockIndexDataInfo;
 use crate::storage::key_unit::KeyDataInfo;
 use crate::storage::storage_block::StorageBlock;
-use crate::storage::unit_base::{write_data_info_section, UnitInfoSection, UnitType};
-use crate::Result;
+use crate::storage::unit_base::{UnitInfoSection, UnitType, write_data_info_section};
 
 /// Builder for constructing individual units in a ZDB file.
 ///
@@ -26,7 +26,7 @@ pub struct ZdbUnitBuilder {
     /// Configuration for compression, encryption, and other build settings
     pub config: BuilderConfig,
     /// Unit information section containing metadata about the current unit
-    pub unit_info: UnitInfoSection, 
+    pub unit_info: UnitInfoSection,
     /// File position where the unit info section was written
     pub unit_info_pos: u64,
 }
@@ -63,7 +63,11 @@ impl ZdbUnitBuilder {
     /// # Errors
     ///
     /// Returns an error if writing to the writer fails.
-    pub fn write_unit_begin<W: Write+Seek>(&mut self, writer: &mut W, unit_type: UnitType) -> Result<()> {
+    pub fn write_unit_begin<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        unit_type: UnitType,
+    ) -> Result<()> {
         self.unit_info.unit_type = unit_type;
         self.unit_info_pos = writer.seek(SeekFrom::Current(0))?;
         self.unit_info.to_writer(writer)?;
@@ -88,8 +92,18 @@ impl ZdbUnitBuilder {
     /// # Errors
     ///
     /// Returns an error if compression, encryption, or writing fails.
-    pub fn output_block<W: Write+Seek>(&mut self, writer: &mut W, block_data: &[u8]) -> Result<u64> {
-        let block_data_len = StorageBlock::to_writer(writer, &block_data, &self.config.crypto_key, self.config.compression_method, self.config.encryption_method)?;
+    pub fn output_block<W: Write + Seek>(
+        &mut self,
+        writer: &mut W,
+        block_data: &[u8],
+    ) -> Result<u64> {
+        let block_data_len = StorageBlock::to_writer(
+            writer,
+            &block_data,
+            &self.config.crypto_key,
+            self.config.compression_method,
+            self.config.encryption_method,
+        )?;
         self.unit_info.block_count += 1;
         self.unit_info.data_section_length += block_data_len as u64;
         self.unit_info.orig_data_section_length += block_data.len() as u64;
@@ -111,43 +125,67 @@ impl ZdbUnitBuilder {
     /// # Errors
     ///
     /// Returns an error if seeking or writing fails.
-    pub fn write_unit_end<W: Write+Seek>(&mut self, writer: &mut W, count: u64) -> Result<()> {
+    pub fn write_unit_end<W: Write + Seek>(&mut self, writer: &mut W, count: u64) -> Result<()> {
         // Rewrite unit info with correct data
         let data_info_pos = writer.seek(SeekFrom::Current(0))?;
         writer.seek(SeekFrom::Start(self.unit_info_pos))?;
-        self.unit_info.to_writer(writer)?; 
+        self.unit_info.to_writer(writer)?;
         writer.seek(SeekFrom::Start(data_info_pos))?;
         let encoding = "utf-8".to_string();
         match self.unit_info.unit_type {
             UnitType::KeyBlockIndex => {
-                let data_info = KeyBlockIndexDataInfo{
+                let data_info = KeyBlockIndexDataInfo {
                     block_count: count as u32,
                     encoding: encoding,
                     locale_id: self.config.default_sorting_locale.clone(),
                 };
-                write_data_info_section(writer, &data_info, &self.config.crypto_key, self.config.compression_method, self.config.encryption_method)?;
+                write_data_info_section(
+                    writer,
+                    &data_info,
+                    &self.config.crypto_key,
+                    self.config.compression_method,
+                    self.config.encryption_method,
+                )?;
             }
             UnitType::Key => {
-                let data_info = KeyDataInfo{
+                let data_info = KeyDataInfo {
                     key_count: count,
                     encoding: encoding,
                     locale_id: self.config.default_sorting_locale.clone(),
                 };
-                write_data_info_section(writer, &data_info, &self.config.crypto_key, self.config.compression_method, self.config.encryption_method)?;
+                write_data_info_section(
+                    writer,
+                    &data_info,
+                    &self.config.crypto_key,
+                    self.config.compression_method,
+                    self.config.encryption_method,
+                )?;
             }
             UnitType::ContentBlockIndex => {
-                let data_info = ContentBlockIndexDataInfo{
+                let data_info = ContentBlockIndexDataInfo {
                     record_count: count,
                     encoding: encoding,
                 };
-                write_data_info_section(writer, &data_info, &self.config.crypto_key, self.config.compression_method, self.config.encryption_method)?;
+                write_data_info_section(
+                    writer,
+                    &data_info,
+                    &self.config.crypto_key,
+                    self.config.compression_method,
+                    self.config.encryption_method,
+                )?;
             }
             UnitType::Content => {
-                let data_info = ContentDataInfo{
+                let data_info = ContentDataInfo {
                     record_count: count,
                     encoding: encoding,
                 };
-                write_data_info_section(writer, &data_info, &self.config.crypto_key, self.config.compression_method, self.config.encryption_method)?;
+                write_data_info_section(
+                    writer,
+                    &data_info,
+                    &self.config.crypto_key,
+                    self.config.compression_method,
+                    self.config.encryption_method,
+                )?;
             }
             _ => {}
         }

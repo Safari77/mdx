@@ -27,13 +27,13 @@
 ///
 /// The function receives a mutable reference to the progress state and
 /// returns `true` to cancel the operation, or `false` to continue.
-pub type ProgressReportFn= fn(&mut ProgressState) -> bool;
+pub type ProgressReportFn = fn(&mut ProgressState) -> bool;
 
 /// State information for progress reporting.
 ///
 /// This struct tracks the progress of a long-running operation and
 /// calls a reporter function at regular intervals.
-pub struct ProgressState{
+pub struct ProgressState {
     /// Identifier for this progress state (e.g., "building", "indexing")
     pub state_id: String,
     /// Total number of items to process
@@ -68,14 +68,19 @@ impl ProgressState {
     /// // Report every 10% of progress
     /// let progress = ProgressState::new("building", 1000, 10, None);
     /// ```
-    pub fn new(state_id:&str, total: u64, report_interval_percent: u64, reporter: Option<ProgressReportFn>) -> Self {
+    pub fn new(
+        state_id: &str,
+        total: u64,
+        report_interval_percent: u64,
+        reporter: Option<ProgressReportFn>,
+    ) -> Self {
         Self {
-            state_id:state_id.to_string(),
+            state_id: state_id.to_string(),
             total,
             error_msg: String::new(),
-            current:0,
+            current: 0,
             last: 0,
-            report_interval: total*report_interval_percent/100,
+            report_interval: total * report_interval_percent / 100,
             reporter,
         }
     }
@@ -96,12 +101,12 @@ impl ProgressState {
         if self.reporter.is_none() {
             return false;
         }
-        if (current-self.last) > self.report_interval || current == self.total-1 {
+        if (current - self.last) > self.report_interval || current == self.total - 1 {
             self.current = current;
-            let cancelled= (self.reporter.unwrap())(self); 
+            let cancelled = (self.reporter.unwrap())(self);
             self.last = current;
             return cancelled;
-        }else{
+        } else {
             return false;
         }
     }

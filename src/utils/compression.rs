@@ -9,9 +9,9 @@
 //! - Bzip2 compression
 //! - LZ4 compression
 
+use crate::{Result, ZdbError};
+use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 use std::io::{Read, Write};
-use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
-use crate::{ZdbError, Result};
 
 /// Compression methods supported by ZDB files.
 ///
@@ -46,7 +46,10 @@ impl TryFrom<u8> for CompressionMethod {
             3 => Ok(CompressionMethod::Lzma),
             4 => Ok(CompressionMethod::Bzip2),
             5 => Ok(CompressionMethod::Lz4),
-            _ => Err(ZdbError::invalid_parameter(format!("Invalid compression method:{}",value))),
+            _ => Err(ZdbError::invalid_parameter(format!(
+                "Invalid compression method:{}",
+                value
+            ))),
         }
     }
 }
@@ -69,7 +72,7 @@ pub trait Compressor {
     ///
     /// Returns an error if compression fails.
     fn compress(&self, data: &[u8]) -> Result<Vec<u8>>;
-    
+
     /// Decompresses the input data.
     ///
     /// # Arguments
@@ -110,15 +113,21 @@ impl Compressor for LzoCompressor {
         let error = ctx.compress(data, &mut compressed);
         match error {
             rust_lzo::LZOError::OK => Ok(compressed),
-            _ => Err(ZdbError::compression_error(format!("LZO compression error: {}", error as u32))),
+            _ => Err(ZdbError::compression_error(format!(
+                "LZO compression error: {}",
+                error as u32
+            ))),
         }
     }
 
     fn decompress(&self, data: &[u8], original_size: usize) -> Result<Vec<u8>> {
         let mut decompressed = vec![0; original_size];
         let (result, error) = rust_lzo::LZOContext::decompress_to_slice(data, &mut decompressed);
-        if error!=rust_lzo::LZOError::OK {
-            return Err(ZdbError::decompression_error(format!("LZO decompression error: {}",error as u32)));
+        if error != rust_lzo::LZOError::OK {
+            return Err(ZdbError::decompression_error(format!(
+                "LZO decompression error: {}",
+                error as u32
+            )));
         }
         Ok(result.to_vec())
     }
@@ -130,7 +139,8 @@ pub struct DeflateCompressor;
 impl Compressor for DeflateCompressor {
     fn compress(&self, data: &[u8]) -> Result<Vec<u8>> {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(data)
+        encoder
+            .write_all(data)
             .map_err(|e| ZdbError::compression_error(format!("Deflate error: {}", e)))?;
         Ok(encoder.finish()?)
     }
@@ -138,10 +148,15 @@ impl Compressor for DeflateCompressor {
     fn decompress(&self, data: &[u8], original_size: usize) -> Result<Vec<u8>> {
         let mut decoder = ZlibDecoder::new(data);
         let mut decompressed = Vec::new();
-        decoder.read_to_end(&mut decompressed)
+        decoder
+            .read_to_end(&mut decompressed)
             .map_err(|e| ZdbError::decompression_error(format!("Inflate error: {}", e)))?;
         if decompressed.len() != original_size {
-            return Err(ZdbError::decompression_error(format!("expected size {} but got {}", original_size, decompressed.len())));
+            return Err(ZdbError::decompression_error(format!(
+                "expected size {} but got {}",
+                original_size,
+                decompressed.len()
+            )));
         }
         Ok(decompressed)
     }
@@ -171,7 +186,8 @@ pub struct Bzip2Compressor;
 impl Compressor for Bzip2Compressor {
     fn compress(&self, data: &[u8]) -> Result<Vec<u8>> {
         let mut encoder = bzip2::write::BzEncoder::new(Vec::new(), bzip2::Compression::default());
-        encoder.write_all(data)
+        encoder
+            .write_all(data)
             .map_err(|e| ZdbError::compression_error(format!("Bzip2 Err:{}", e)))?;
         Ok(encoder.finish()?)
     }
@@ -179,7 +195,8 @@ impl Compressor for Bzip2Compressor {
     fn decompress(&self, data: &[u8], original_size: usize) -> Result<Vec<u8>> {
         let mut decoder = bzip2::read::BzDecoder::new(data);
         let mut decompressed = vec![0; original_size];
-        decoder.read_exact(&mut decompressed)
+        decoder
+            .read_exact(&mut decompressed)
             .map_err(|e| ZdbError::decompression_error(format!("Bzip2 Err:{}", e)))?;
         Ok(decompressed)
     }
@@ -191,7 +208,8 @@ impl Compressor for Lz4Compressor {
     fn compress(&self, data: &[u8]) -> Result<Vec<u8>> {
         let mut compressed = Vec::new();
         let mut encoder = lz4::EncoderBuilder::new().build(&mut compressed)?;
-        encoder.write_all(data)
+        encoder
+            .write_all(data)
             .map_err(|e| ZdbError::compression_error(format!("Lz4 Err:{}", e)))?;
         let (_, result) = encoder.finish();
         result?;
@@ -201,9 +219,10 @@ impl Compressor for Lz4Compressor {
     fn decompress(&self, data: &[u8], original_size: usize) -> Result<Vec<u8>> {
         let mut decompressed = vec![0; original_size];
         let mut decoder = lz4::Decoder::new(data)?;
-        decoder.read_exact(&mut decompressed)
+        decoder
+            .read_exact(&mut decompressed)
             .map_err(|e| ZdbError::decompression_error(format!("Lz4 Err:{}", e)))?;
-    Ok(decompressed)
+        Ok(decompressed)
     }
 }
 
@@ -216,4 +235,4 @@ pub fn get_compressor(method: CompressionMethod) -> Box<dyn Compressor> {
         CompressionMethod::Bzip2 => Box::new(Bzip2Compressor),
         CompressionMethod::Lz4 => Box::new(Lz4Compressor),
     }
-} 
+}

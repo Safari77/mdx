@@ -32,8 +32,8 @@
 //! - [`ZdbError::CompressionError`]: Compression/decompression failures
 //! - [`ZdbError::ParserError`]: XML/JSON parsing errors
 
+use snafu::{Backtrace, Snafu};
 use std::io;
-use snafu::{Snafu, Backtrace};
 
 // Re-export snafu for context providers
 pub use snafu;
@@ -51,22 +51,22 @@ pub enum ZdbError {
         source: io::Error,
         backtrace: Backtrace,
     },
-    
+
     /// CRC checksum validation failed, indicating data corruption.        
     #[snafu(display("CRC mismatch: expected {expected:#x}, got {got:#x}"))]
-    CrcMismatch { 
-        expected: u32, 
+    CrcMismatch {
+        expected: u32,
         got: u32,
         backtrace: Backtrace,
     },
-    
+
     /// Error parsing XML, JSON, or other structured data formats.
-	#[snafu(display("Parser error: {source}"))]
-	ParserError {
-		source: Box<dyn std::error::Error + Send + Sync + 'static>,
-		backtrace: Backtrace,
-	},
-    
+    #[snafu(display("Parser error: {source}"))]
+    ParserError {
+        source: Box<dyn std::error::Error + Send + Sync + 'static>,
+        backtrace: Backtrace,
+    },
+
     /// Dictionary file data is malformed or doesn't match expected format.
     #[snafu(display("Invalid data format: {message}"))]
     InvalidDataFormat {
@@ -90,10 +90,7 @@ pub enum ZdbError {
 
     /// Dictionary key was not found during lookup.
     #[snafu(display("Key not found: {key}"))]
-    KeyNotFound {
-        key: String,
-        backtrace: Backtrace,
-    },
+    KeyNotFound { key: String, backtrace: Backtrace },
 
     /// Dictionary profile ID was not found.
     #[snafu(display("Profile not found: {profile_id}"))]
@@ -111,9 +108,7 @@ pub enum ZdbError {
 
     /// Operation was interrupted by user.
     #[snafu(display("User interrupted"))]
-    UserInterrupted {
-        backtrace: Backtrace,
-    },
+    UserInterrupted { backtrace: Backtrace },
 
     /// General error that doesn't fit other categories.
     #[snafu(display("General error: {message}"))]
@@ -126,43 +121,64 @@ pub enum ZdbError {
 // For automatic conversions from standard error types
 impl From<io::Error> for ZdbError {
     fn from(source: io::Error) -> Self {
-        Self::Io { source, backtrace: Backtrace::capture() }
+        Self::Io {
+            source,
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
 impl From<serde_xml_rs::Error> for ZdbError {
     fn from(source: serde_xml_rs::Error) -> Self {
-		Self::ParserError { source: Box::new(source), backtrace: Backtrace::capture() }
+        Self::ParserError {
+            source: Box::new(source),
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
 impl From<quick_xml::Error> for ZdbError {
     fn from(source: quick_xml::Error) -> Self {
-		Self::ParserError { source: Box::new(source), backtrace: Backtrace::capture() }
+        Self::ParserError {
+            source: Box::new(source),
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
 impl From<std::string::FromUtf8Error> for ZdbError {
     fn from(source: std::string::FromUtf8Error) -> Self {
-		Self::InvalidDataFormat { message: format!("Invalid UTF-8 (String): {}", source), backtrace: Backtrace::capture() }
+        Self::InvalidDataFormat {
+            message: format!("Invalid UTF-8 (String): {}", source),
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
 impl From<std::str::Utf8Error> for ZdbError {
     fn from(source: std::str::Utf8Error) -> Self {
-		Self::InvalidDataFormat { message: format!("Invalid UTF-8 (&str): {}", source), backtrace: Backtrace::capture() }
+        Self::InvalidDataFormat {
+            message: format!("Invalid UTF-8 (&str): {}", source),
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
 impl From<url::ParseError> for ZdbError {
     fn from(source: url::ParseError) -> Self {
-        Self::ParserError { source: Box::new(source), backtrace: Backtrace::capture() }
+        Self::ParserError {
+            source: Box::new(source),
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
 impl From<crate::utils::icu_wrapper::IcuError> for ZdbError {
     fn from(source: crate::utils::icu_wrapper::IcuError) -> Self {
-        Self::IcuError { source, backtrace: Backtrace::capture() }
+        Self::IcuError {
+            source,
+            backtrace: Backtrace::capture(),
+        }
     }
 }
 
@@ -183,7 +199,6 @@ impl From<serde_json::Error> for ZdbError {
         }
     }
 }
-
 
 /// Helper methods for creating errors without context providers.
 impl ZdbError {

@@ -52,7 +52,10 @@ impl TryFrom<u8> for EncryptionMethod {
             0 => Ok(EncryptionMethod::None),
             1 => Ok(EncryptionMethod::Simple),
             2 => Ok(EncryptionMethod::Salsa20),
-            _ => Err(ZdbError::invalid_parameter(format!("Invalid encryption method:{}",value))),
+            _ => Err(ZdbError::invalid_parameter(format!(
+                "Invalid encryption method:{}",
+                value
+            ))),
         }
     }
 }
@@ -72,7 +75,7 @@ pub trait Encryptor {
     ///
     /// Returns an error if the input and output lengths don't match or encryption fails.
     fn encrypt(&mut self, input: &[u8], output: &mut [u8]) -> io::Result<()>;
-    
+
     /// Decrypts the input data into the output buffer.
     ///
     /// # Arguments
@@ -87,14 +90,15 @@ pub trait Encryptor {
 }
 
 /// No-op encryptor that passes data through unchanged.
-pub struct NoEncryption{
-}
+pub struct NoEncryption {}
 
 impl Encryptor for NoEncryption {
-
     fn encrypt(&mut self, input: &[u8], output: &mut [u8]) -> io::Result<()> {
         if input.len() != output.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Input and output length mismatch"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Input and output length mismatch",
+            ));
         }
         output.copy_from_slice(input);
         Ok(())
@@ -102,7 +106,10 @@ impl Encryptor for NoEncryption {
 
     fn decrypt(&mut self, input: &[u8], output: &mut [u8]) -> io::Result<()> {
         if input.len() != output.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Input and output length mismatch"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Input and output length mismatch",
+            ));
         }
         output.copy_from_slice(input);
         Ok(())
@@ -134,7 +141,7 @@ impl Encryptor for NoEncryption {
 /// encryptor.inplace_decrypt(&mut encrypted2).unwrap();
 /// assert_eq!(input, &encrypted2[..]);
 /// ```
-pub struct SimpleEncryptor{
+pub struct SimpleEncryptor {
     key: Vec<u8>,
 }
 
@@ -147,7 +154,10 @@ impl SimpleEncryptor {
 impl Encryptor for SimpleEncryptor {
     fn encrypt(&mut self, input: &[u8], output: &mut [u8]) -> io::Result<()> {
         if input.len() != output.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Input and output length mismatch"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Input and output length mismatch",
+            ));
         }
         let key_len = self.key.len();
         let mut last_byte = 0x36;
@@ -161,13 +171,19 @@ impl Encryptor for SimpleEncryptor {
 
     fn decrypt(&mut self, input: &[u8], output: &mut [u8]) -> io::Result<()> {
         if input.len() != output.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Input and output length mismatch"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Input and output length mismatch",
+            ));
         }
         let key_len = self.key.len();
         let mut last_byte = 0x36;
         for (i, (&in_byte, out_byte)) in input.iter().zip(output.iter_mut()).enumerate() {
             let b = in_byte;
-            *out_byte = (((b & 0x0f) << 4) | ((b & 0xf0) >> 4)) ^ self.key[i % key_len] ^ (i as u8) ^ last_byte;
+            *out_byte = (((b & 0x0f) << 4) | ((b & 0xf0) >> 4))
+                ^ self.key[i % key_len]
+                ^ (i as u8)
+                ^ last_byte;
             last_byte = b;
         }
         Ok(())
@@ -180,7 +196,10 @@ impl SimpleEncryptor {
         let mut i = 0;
         while i < input.len() {
             let b = input[i];
-            input[i] = (((b & 0x0f) << 4) | ((b & 0xf0) >> 4)) ^ self.key[i % key_len] ^ (i as u8) ^ last_byte;
+            input[i] = (((b & 0x0f) << 4) | ((b & 0xf0) >> 4))
+                ^ self.key[i % key_len]
+                ^ (i as u8)
+                ^ last_byte;
             last_byte = b;
             i += 1;
         }
@@ -192,14 +211,13 @@ pub struct Salsa20Encryptor {
     ctx: Salsa20Context,
 }
 
-impl Salsa20Encryptor{
+impl Salsa20Encryptor {
     pub fn new(key: &[u8], nonce: &[u8]) -> Self {
         let mut ctx = Salsa20Context { input: [0u32; 16] };
         salsa20_key_setup(&mut ctx, key, 128);
         salsa20_iv_setup(&mut ctx, nonce);
         Self { ctx }
     }
-
 }
 impl Encryptor for Salsa20Encryptor {
     fn encrypt(&mut self, input: &[u8], output: &mut [u8]) -> io::Result<()> {
@@ -213,19 +231,26 @@ impl Encryptor for Salsa20Encryptor {
     }
 }
 
-pub fn get_encryptor(method: EncryptionMethod, key: &[u8], nonce: &[u8]) -> Result<Box<dyn Encryptor>> {
-    let encryptor:Box<dyn Encryptor> = match method {
-        EncryptionMethod::None => Box::new(NoEncryption{}),
+pub fn get_encryptor(
+    method: EncryptionMethod,
+    key: &[u8],
+    nonce: &[u8],
+) -> Result<Box<dyn Encryptor>> {
+    let encryptor: Box<dyn Encryptor> = match method {
+        EncryptionMethod::None => Box::new(NoEncryption {}),
         EncryptionMethod::Simple => Box::new(SimpleEncryptor::new(key, nonce)),
         EncryptionMethod::Salsa20 => Box::new(Salsa20Encryptor::new(key, nonce)),
     };
     Ok(encryptor)
-} 
+}
 
 pub fn decrypt_salsa20(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
     let nonce = [0u8; 8];
-    let mut salsa20_encryptor =
-        get_encryptor(crate::crypto::encryption::EncryptionMethod::Salsa20, key, &nonce)?;
+    let mut salsa20_encryptor = get_encryptor(
+        crate::crypto::encryption::EncryptionMethod::Salsa20,
+        key,
+        &nonce,
+    )?;
     let mut decrypted_data = vec![0; data.len()];
     salsa20_encryptor.decrypt(data, &mut decrypted_data)?;
     Ok(decrypted_data)
@@ -233,8 +258,11 @@ pub fn decrypt_salsa20(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
 
 pub fn encrypt_salsa20(data: &[u8], key: &[u8]) -> Result<Vec<u8>> {
     let nonce = [0u8; 8];
-    let mut salsa20_encryptor =
-        get_encryptor(crate::crypto::encryption::EncryptionMethod::Salsa20, key, &nonce)?;
+    let mut salsa20_encryptor = get_encryptor(
+        crate::crypto::encryption::EncryptionMethod::Salsa20,
+        key,
+        &nonce,
+    )?;
     let mut encrypted_data = vec![0; data.len()];
     salsa20_encryptor.encrypt(data, &mut encrypted_data)?;
     Ok(encrypted_data)

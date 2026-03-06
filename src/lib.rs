@@ -93,9 +93,8 @@ pub mod storage;
 pub mod utils;
 
 // Re-export commonly used types for convenience
-pub use readers::{MdxReader, MddReader, ZdbReader};
-pub use storage::{MetaUnit, KeyIndex};
+pub use readers::{MddReader, MdxReader, ZdbReader};
+pub use storage::{KeyIndex, MetaUnit};
 
 // Re-export error types for convenience
-pub use error::{ZdbError, Result, snafu};
-
+pub use error::{Result, ZdbError, snafu};

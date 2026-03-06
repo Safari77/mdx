@@ -68,8 +68,3 @@ pub trait DataLoader {
     /// Returns an error if the data cannot be loaded from the source.
     fn load_data(&mut self, entry: &ZdbRecord) -> Result<Vec<u8>>;
 }
-
-
-
-
-

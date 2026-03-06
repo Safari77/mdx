@@ -48,9 +48,9 @@ use crate::{Result, ZdbError};
 /// Returns the fixed path string (unchanged on non-Windows platforms).
 pub fn fix_windows_path(path: &str) -> String {
     #[cfg(target_os = "windows")]
-    if path.len()>4 {
+    if path.len() > 4 {
         let chars: Vec<char> = path.chars().take(4).collect();
-        if chars[0]=='/' && chars[1].is_alphabetic() && chars[2]==':'{
+        if chars[0] == '/' && chars[1].is_alphabetic() && chars[2] == ':' {
             path = path.strip_prefix("/").unwrap();
         }
     }
@@ -81,10 +81,7 @@ pub fn windows_path_to_unix_path(path: &str) -> String {
 
 /// Checks if a file URL points to an existing file.
 pub fn file_url_exists(url: &Url) -> bool {
-    url_utils::get_decoded_path(url).is_ok_and(
-        |path| 
-            Path::new(&path).exists()
-    )
+    url_utils::get_decoded_path(url).is_ok_and(|path| Path::new(&path).exists())
 }
 
 /// Opens a file URL and returns a buffered reader.
@@ -139,14 +136,14 @@ pub fn load_string_from_file_with_ext(base_url: &Url, ext: &str) -> Result<Strin
     }
 }
 
-pub fn read_exact_to_vec<R: Read>(reader: &mut R, len:usize) -> crate::Result<Vec<u8>> {
+pub fn read_exact_to_vec<R: Read>(reader: &mut R, len: usize) -> crate::Result<Vec<u8>> {
     let mut buf = Vec::with_capacity(len as usize);
     unsafe {
         buf.set_len(buf.capacity()); // Set length without initializing memory
     }
     reader.read_exact(buf.as_mut_slice())?;
     Ok(buf)
-} 
+}
 
 pub fn copy_optimized<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> Result<u64> {
     let mut total_bytes = 0;
@@ -165,13 +162,13 @@ pub fn copy_optimized<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) -> R
 }
 
 /// Scan a directory for files matching the given regex pattern
-/// 
+///
 /// # Arguments
 /// * `target_dir` - The directory to scan
 /// * `pattern` - A regex pattern to match file names against
 /// * `recursive` - Whether to scan subdirectories recursively
 /// * `files` - A list to store the matching file paths
-/// 
+///
 /// # Returns
 /// Returns `Ok(true)` on success, or an error if the scan fails
 pub fn scan_dir<P: AsRef<Path>>(
@@ -183,23 +180,28 @@ pub fn scan_dir<P: AsRef<Path>>(
     let walker = if recursive {
         WalkDir::new(&target_dir).follow_links(true).into_iter()
     } else {
-        WalkDir::new(&target_dir).follow_links(true).max_depth(1).into_iter()
+        WalkDir::new(&target_dir)
+            .follow_links(true)
+            .max_depth(1)
+            .into_iter()
     };
-    
+
     for entry in walker {
-        let entry = entry.map_err(|e| ZdbError::invalid_data_format(format!("Walk directory error: {}", e)))?;
-        
+        let entry = entry
+            .map_err(|e| ZdbError::invalid_data_format(format!("Walk directory error: {}", e)))?;
+
         // Skip directories, only process files (follow_links(true) will automatically handle symbolic links)
         if entry.file_type().is_file() {
             // In non-recursive mode, only process files at depth 1 (directly in the target directory)
             if !recursive && entry.depth() > 1 {
                 continue;
             }
-            
-            let file_name = entry.file_name().to_str().ok_or_else(|| 
-                ZdbError::invalid_data_format("Invalid file name encoding")
-            )?;
-            
+
+            let file_name = entry
+                .file_name()
+                .to_str()
+                .ok_or_else(|| ZdbError::invalid_data_format("Invalid file name encoding"))?;
+
             if pattern.is_match(file_name) {
                 files.push_back(entry.path().to_path_buf());
             }

@@ -11,7 +11,7 @@
 //!
 //! This module works with all ZDB versions (V1, V2, V3).
 
-use std::cmp::{min, Ordering};
+use std::cmp::{Ordering, min};
 use std::collections::{HashSet, LinkedList};
 use std::io::{BufReader, Read, Seek};
 use std::num::NonZeroUsize;
@@ -29,8 +29,8 @@ use crate::storage::key_block_index_unit::KeyBlockIndexUnit;
 use crate::storage::key_unit::KeyUnit;
 use crate::storage::meta_unit::{ContentType, MetaUnit};
 use crate::storage::reader_helper::decode_bytes_to_string;
-use crate::utils::sort_key::get_sort_key;
 use crate::utils::KeyComparable;
+use crate::utils::sort_key::get_sort_key;
 use crate::{Result, ZdbError};
 
 const LINK_PREFIX: &[u8] = b"@@@LINK=";
@@ -96,9 +96,9 @@ impl<R: Read + Seek> ZdbReader<R> {
         let mut reader = reader;
         // First create a temporary MetaUnit with content_data_total_length = 0
         let temp_meta = MetaUnit::from_reader(&mut reader, device_id, license_data, 0)?;
-        if temp_meta.is_v3(){
+        if temp_meta.is_v3() {
             return ZdbReader::from_reader_v3(reader, temp_meta);
-        }else{
+        } else {
             return ZdbReader::from_reader_v1_v2(reader, temp_meta);
         }
     }
@@ -106,10 +106,12 @@ impl<R: Read + Seek> ZdbReader<R> {
     /// Loads ZDB file from V1/V2 format.
     pub fn from_reader_v1_v2(mut reader: R, meta: MetaUnit) -> Result<ZdbReader<R>> {
         let rc_meta = Rc::new(meta);
-        let key_block_indexes =  KeyBlockIndexUnit::from_reader_v1_v2(&mut reader, &rc_meta)?;
+        let key_block_indexes = KeyBlockIndexUnit::from_reader_v1_v2(&mut reader, &rc_meta)?;
         let key_blocks = KeyUnit::from_reader_v1_v2(&mut reader, &rc_meta, &key_block_indexes)?;
-        let content_block_indexes = ContentBlockIndexUnit::from_reader_v1_v2(&mut reader, &rc_meta)?;
-        let content = ContentUnit::from_reader_v1_v2(&mut reader, &rc_meta, &content_block_indexes)?;
+        let content_block_indexes =
+            ContentBlockIndexUnit::from_reader_v1_v2(&mut reader, &rc_meta)?;
+        let content =
+            ContentUnit::from_reader_v1_v2(&mut reader, &rc_meta, &content_block_indexes)?;
 
         // Create a new MetaUnit with the correct content_data_total_length
         let mut updated_meta = (*rc_meta).clone();
@@ -131,8 +133,9 @@ impl<R: Read + Seek> ZdbReader<R> {
     pub fn from_reader_v3(mut reader: R, meta: MetaUnit) -> Result<ZdbReader<R>> {
         let rc_meta = Rc::new(meta);
         let content = ContentUnit::from_reader_v3(&mut reader, &rc_meta)?;
-        let content_block_index = ContentBlockIndexUnit::from_reader_v3(&mut reader, &rc_meta, content.block_count)?;
-        
+        let content_block_index =
+            ContentBlockIndexUnit::from_reader_v3(&mut reader, &rc_meta, content.block_count)?;
+
         // Create a new MetaUnit with the correct content_data_total_length
         let mut updated_meta = (*rc_meta).clone();
         updated_meta.content_data_total_length = content_block_index.total_original_data_length;
@@ -173,20 +176,23 @@ impl<R: Read + Seek> ZdbReader<R> {
             self.key_block_indexes
                 .find_index(key, prefix_match, partial_match)?;
         if let Some(key_block_index) = key_block_index {
-            let key_block = self.key_blocks.get_key_block(&mut self.reader, &key_block_index)?;
-            let key_index = key_block.borrow().find_index(
-                key,
-                prefix_match,
-                partial_match,
-            )?;
+            let key_block = self
+                .key_blocks
+                .get_key_block(&mut self.reader, &key_block_index)?;
+            let key_index = key_block
+                .borrow()
+                .find_index(key, prefix_match, partial_match)?;
             if let Some(key_index) = key_index {
-                if best_match && key_index.key!=key{
+                if best_match && key_index.key != key {
                     let sort_key = get_sort_key(key.as_bytes(), &self.meta)?;
-                    for i in key_index.entry_no+1..self.get_entry_count() as EntryNo{
+                    for i in key_index.entry_no + 1..self.get_entry_count() as EntryNo {
                         let index = self.get_index(i)?;
-                        if key==index.key{ //If this index is the same as the key, return it
+                        if key == index.key {
+                            //If this index is the same as the key, return it
                             return Ok(Some(index));
-                        }else if index.compare_with(&key, &sort_key, false, &self.meta)? != Ordering::Equal {
+                        } else if index.compare_with(&key, &sort_key, false, &self.meta)?
+                            != Ordering::Equal
+                        {
                             break;
                         }
                     }
@@ -205,11 +211,16 @@ impl<R: Read + Seek> ZdbReader<R> {
     ) -> crate::Result<LinkedList<KeyIndex>> {
         let mut key_indexes = LinkedList::new();
         key_indexes.push_back(key_index.clone());
-        let max_count = min(max_count, self.get_entry_count() - key_index.entry_no as u64);
+        let max_count = min(
+            max_count,
+            self.get_entry_count() - key_index.entry_no as u64,
+        );
         let search_sort_key = get_sort_key(key_index.key.as_bytes(), &self.meta)?;
         for i in 1..max_count {
             let index = self.get_index(key_index.entry_no + i as EntryNo)?;
-            if index.compare_with(&key_index.key, &search_sort_key, start_with, &self.meta)? == Ordering::Equal {
+            if index.compare_with(&key_index.key, &search_sort_key, start_with, &self.meta)?
+                == Ordering::Equal
+            {
                 key_indexes.push_back(index);
             } else {
                 break;
@@ -239,10 +250,10 @@ impl<R: Read + Seek> ZdbReader<R> {
             Rc::clone(&block)
         } else {
             // 读取数据块
-            let block = Rc::new(self.content.get_content_block(
-                &mut self.reader,
-                &content_block_index,
-            )?);
+            let block = Rc::new(
+                self.content
+                    .get_content_block(&mut self.reader, &content_block_index)?,
+            );
             self.block_cache
                 .put(content_block_index.block_offset_in_unit, block.clone());
             block
@@ -250,9 +261,13 @@ impl<R: Read + Seek> ZdbReader<R> {
         Ok(content_block)
     }
 
-    fn resolve_link_target_with_visited(&mut self, start_index: &KeyIndex, visited: Option<&mut HashSet<u64>>) -> crate::Result<KeyIndex> {
+    fn resolve_link_target_with_visited(
+        &mut self,
+        start_index: &KeyIndex,
+        visited: Option<&mut HashSet<u64>>,
+    ) -> crate::Result<KeyIndex> {
         //TODO: this function will try to load the content of the target entry, but the content is not used if it's not a link.
-        //It can be optimized by returning the content of the target entry if it's not a link. Or don't try to check if it's a link 
+        //It can be optimized by returning the content of the target entry if it's not a link. Or don't try to check if it's a link
         //if the entry's content length is larger than a certain threshold.
         let mut owned_visited: HashSet<u64>;
         let visited_ref: &mut HashSet<u64> = match visited {
@@ -271,25 +286,36 @@ impl<R: Read + Seek> ZdbReader<R> {
                     visited_str.push_str(&format!("{}: {}\n", index.entry_no, index.key));
                 }
                 visited_str.push_str(&format!("{}: {}\n", current.entry_no, current.key));
-                return Err(ZdbError::invalid_data_format(format!("Cyclic link detected, entry links:\n{}", visited_str) ));
+                return Err(ZdbError::invalid_data_format(format!(
+                    "Cyclic link detected, entry links:\n{}",
+                    visited_str
+                )));
             }
 
             //zdb's content type could be binary, so we need to decode it to string first
             let bin_content = self.get_data(&current, false)?;
-            
+
             if bin_content.starts_with(LINK_PREFIX) || bin_content.starts_with(LINK_PREFIX_W) {
-                let content = decode_bytes_to_string(&bin_content, &self.content.meta_info.encoding_obj)?;
+                let content =
+                    decode_bytes_to_string(&bin_content, &self.content.meta_info.encoding_obj)?;
 
                 let target_entry_key = content[LINK_PREFIX.len()..].trim_end();
-                let target_entry_index = self.find_first_match(target_entry_key, false, false, true)?;
+                let target_entry_index =
+                    self.find_first_match(target_entry_key, false, false, true)?;
                 if let Some(target_entry_index) = target_entry_index {
                     if current.entry_no == target_entry_index.entry_no {
-                        return Err(ZdbError::invalid_data_format(format!("Link to self, entry:{}, target:{}", current.key, target_entry_key)));
+                        return Err(ZdbError::invalid_data_format(format!(
+                            "Link to self, entry:{}, target:{}",
+                            current.key, target_entry_key
+                        )));
                     }
                     current = target_entry_index;
                     continue;
                 } else {
-                    return Err(ZdbError::invalid_data_format(format!("Can't resolve link target: {}", target_entry_key)));
+                    return Err(ZdbError::invalid_data_format(format!(
+                        "Can't resolve link target: {}",
+                        target_entry_key
+                    )));
                 }
             }
             return Ok(current);
@@ -299,7 +325,7 @@ impl<R: Read + Seek> ZdbReader<R> {
     pub fn get_data_by_key(&mut self, key: &str) -> crate::Result<Option<Vec<u8>>> {
         let key_index = self.find_first_match(key, false, false, true)?;
         if let Some(key_index) = key_index {
-            return Ok(Some(self.get_data(&key_index, true)?))
+            return Ok(Some(self.get_data(&key_index, true)?));
         } else {
             return Ok(None);
         }
@@ -319,7 +345,11 @@ impl<R: Read + Seek> ZdbReader<R> {
         Ok(content.to_vec())
     }
 
-    pub fn get_string(&mut self, key_index: &KeyIndex, resolve_link: bool) -> crate::Result<String> {
+    pub fn get_string(
+        &mut self,
+        key_index: &KeyIndex,
+        resolve_link: bool,
+    ) -> crate::Result<String> {
         let resolved_index = if resolve_link {
             self.resolve_link_target_with_visited(key_index, None)?
         } else {
@@ -329,25 +359,32 @@ impl<R: Read + Seek> ZdbReader<R> {
         content_block.get_string(
             resolved_index.content_offset_in_source,
             self.get_content_length(resolved_index.entry_no)?,
-            &self.content.meta_info.encoding_obj
+            &self.content.meta_info.encoding_obj,
         )
     }
 
     pub fn get_index(&mut self, entry_no: EntryNo) -> crate::Result<KeyIndex> {
         let key_block_index = self.key_block_indexes.get_index(entry_no)?;
-        let key_block =
-            self.key_blocks
-                .get_key_block(&mut self.reader, key_block_index)?;
+        let key_block = self
+            .key_blocks
+            .get_key_block(&mut self.reader, key_block_index)?;
         let key_index = key_block.borrow().get_index(entry_no)?;
         Ok(key_index)
     }
 
-    pub fn get_indexes(&mut self, start_entry_no: EntryNo, max_count: u64) -> crate::Result<LinkedList<KeyIndex>> {
+    pub fn get_indexes(
+        &mut self,
+        start_entry_no: EntryNo,
+        max_count: u64,
+    ) -> crate::Result<LinkedList<KeyIndex>> {
         if start_entry_no >= self.get_entry_count() as EntryNo {
             return Ok(LinkedList::new());
         }
         let mut indexes = LinkedList::new();
-        let end_entry_no = min (start_entry_no + max_count as EntryNo, self.get_entry_count() as EntryNo);
+        let end_entry_no = min(
+            start_entry_no + max_count as EntryNo,
+            self.get_entry_count() as EntryNo,
+        );
         for i in start_entry_no..end_entry_no {
             indexes.push_back(self.get_index(i)?);
         }
@@ -357,5 +394,4 @@ impl<R: Read + Seek> ZdbReader<R> {
     pub fn is_binary_content(&self) -> bool {
         self.meta.db_info.content_type == ContentType::Binary
     }
-
 }

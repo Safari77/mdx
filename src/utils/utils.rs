@@ -27,13 +27,13 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::collections::LinkedList;
 
-use lol_html::{text, HtmlRewriter, Settings};
+use lol_html::{HtmlRewriter, Settings, text};
 use quick_xml::events::Event;
 use serde_json::{Map, Value};
 
+use super::sort_key::get_sort_key;
 use crate::storage::meta_unit::MetaUnit;
 use crate::storage::reader_helper;
-use super::sort_key::get_sort_key;
 use crate::{Result, ZdbError};
 
 /// Moves an element in a `LinkedList` from position `pos` to position `new_pos`.
@@ -126,7 +126,9 @@ pub fn simple_xml_to_json(xml: &str) -> Result<serde_json::Value> {
                             let value = string_from_slice(&attr.value);
                             attrs.insert(key, Value::String(value));
                         }
-                        _ => { continue; }
+                        _ => {
+                            continue;
+                        }
                     }
                 }
                 json_map.insert(name, Value::Object(attrs));
@@ -142,7 +144,8 @@ pub fn simple_xml_to_json(xml: &str) -> Result<serde_json::Value> {
 
 pub fn remove_xml_declaration(xml: &mut String) {
     if xml.starts_with("<?xml") {
-        if let Some(end) = xml.find("?>") { //remove XML declaration
+        if let Some(end) = xml.find("?>") {
+            //remove XML declaration
             *xml = xml[end + 2..].trim_start().to_string();
         }
     }
@@ -150,15 +153,21 @@ pub fn remove_xml_declaration(xml: &mut String) {
 
 // Trait for comparison operations
 pub trait KeyComparable {
-    fn compare_with(&self, other:&str, other_sort_key:&[u8], start_with: bool, meta_info: &MetaUnit) -> Result<Ordering>;
+    fn compare_with(
+        &self,
+        other: &str,
+        other_sort_key: &[u8],
+        start_with: bool,
+        meta_info: &MetaUnit,
+    ) -> Result<Ordering>;
 }
-pub trait RandomAccessable<T:KeyComparable>{
-    fn get_item(&self, index:usize)->Result<&T>;
-    fn len(&self)->usize;
+pub trait RandomAccessable<T: KeyComparable> {
+    fn get_item(&self, index: usize) -> Result<&T>;
+    fn len(&self) -> usize;
 }
 //compare the first sort key with the second sort key
 //if prefix_match is true and second sort key start with first sort key, return equal
-pub fn sort_key_compare( first: &[u8], second: &[u8], start_with: bool) -> Result<Ordering> {
+pub fn sort_key_compare(first: &[u8], second: &[u8], start_with: bool) -> Result<Ordering> {
     let first = if start_with && first.len() > second.len() {
         &first[..second.len()]
     } else {
@@ -167,13 +176,19 @@ pub fn sort_key_compare( first: &[u8], second: &[u8], start_with: bool) -> Resul
     Ok(first.cmp(second))
 }
 
-pub fn locale_compare(first: &str, second: &str, start_with: bool, meta_info: &MetaUnit) -> Result<Ordering> {
+pub fn locale_compare(
+    first: &str,
+    second: &str,
+    start_with: bool,
+    meta_info: &MetaUnit,
+) -> Result<Ordering> {
     let first = if start_with && first.len() > second.len() {
         let char_count = second.chars().count();
-        let end = first.char_indices()
-        .nth(char_count) // Get byte position of nth character
-        .map(|(i, _)| i) // Extract byte index
-        .unwrap_or(first.len()); // If less than n characters, return full string length
+        let end = first
+            .char_indices()
+            .nth(char_count) // Get byte position of nth character
+            .map(|(i, _)| i) // Extract byte index
+            .unwrap_or(first.len()); // If less than n characters, return full string length
         &first[..end]
     } else {
         first
@@ -182,17 +197,24 @@ pub fn locale_compare(first: &str, second: &str, start_with: bool, meta_info: &M
     Ok(result)
 }
 
-pub fn key_compare(first: &str, first_sort_key: &[u8], second: &str, second_sort_key: &[u8], start_with: bool, meta_info: &MetaUnit) -> Result<Ordering> {
-    if meta_info.is_v3(){
+pub fn key_compare(
+    first: &str,
+    first_sort_key: &[u8],
+    second: &str,
+    second_sort_key: &[u8],
+    start_with: bool,
+    meta_info: &MetaUnit,
+) -> Result<Ordering> {
+    if meta_info.is_v3() {
         //Because ICU4x doesn't provide sort key support, and the icu4c's get_sort_key is slow according to their documentation,
         //we use locale compare directly here.
         locale_compare(first, second, start_with, meta_info)
-    }else{
+    } else {
         sort_key_compare(first_sort_key, second_sort_key, start_with)
     }
 }
 
-pub fn binary_search_first<T: KeyComparable+Clone, C:RandomAccessable<T>>(
+pub fn binary_search_first<T: KeyComparable + Clone, C: RandomAccessable<T>>(
     container: &C,
     key: &str,
     meta_info: &MetaUnit,
@@ -200,7 +222,8 @@ pub fn binary_search_first<T: KeyComparable+Clone, C:RandomAccessable<T>>(
     partial_match: bool,
 ) -> Result<Option<T>> {
     let mut search_key = key.to_string();
-    let search_key_bytes = reader_helper::encode_string_to_bytes(&search_key, meta_info.encoding_obj)?;
+    let search_key_bytes =
+        reader_helper::encode_string_to_bytes(&search_key, meta_info.encoding_obj)?;
     let mut search_sort_key = get_sort_key(&search_key_bytes, meta_info)?;
     let mut result = None;
 
@@ -228,7 +251,8 @@ pub fn binary_search_first<T: KeyComparable+Clone, C:RandomAccessable<T>>(
             let mut leftmost_index = index;
             while leftmost_index > 0 {
                 let prev_item = container.get_item(leftmost_index - 1)?;
-                match prev_item.compare_with(&search_key, &search_sort_key, prefix_match, meta_info) {
+                match prev_item.compare_with(&search_key, &search_sort_key, prefix_match, meta_info)
+                {
                     Ok(Ordering::Equal) => leftmost_index -= 1,
                     _ => break,
                 }
@@ -250,7 +274,7 @@ pub fn binary_search_first<T: KeyComparable+Clone, C:RandomAccessable<T>>(
 }
 
 /// Escapes HTML special characters in MDX text content and appends to the provided string.
-/// 
+///
 /// This function converts special characters to their HTML entity equivalents:
 /// - `\n` → `<br>`
 /// - `&` → `&amp;`
@@ -258,21 +282,21 @@ pub fn binary_search_first<T: KeyComparable+Clone, C:RandomAccessable<T>>(
 /// - `>` → `&gt;`
 /// - `"` → `&quot;`
 /// - `\n` (escaped newline) → `<br>`
-/// 
+///
 /// # Arguments
-/// 
+///
 /// * `mdx_text` - The input MDX text to escape
 /// * `escaped_text` - The mutable string to append the escaped content to
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// use mdx::utils::html_escape_mdx_text;
-/// 
+///
 /// let mut result = String::from("Prefix: ");
 /// html_escape_mdx_text("Hello & <world>\nNext line", &mut result);
 /// assert_eq!(result, "Prefix: Hello &amp; &lt;world&gt;<br>Next line");
-/// 
+///
 /// let mut result = String::new();
 /// html_escape_mdx_text("Line 1\\nLine 2", &mut result);
 /// assert_eq!(result, "Line 1<br>Line 2");
@@ -280,10 +304,10 @@ pub fn binary_search_first<T: KeyComparable+Clone, C:RandomAccessable<T>>(
 pub fn html_escape_mdx_text(mdx_text: &str, escaped_text: &mut String) {
     let chars: Vec<char> = mdx_text.chars().collect();
     let mut i = 0;
-    
+
     while i < chars.len() {
         let ch = chars[i];
-        
+
         match ch {
             '\n' => {
                 escaped_text.push_str("<br>");
@@ -313,7 +337,7 @@ pub fn html_escape_mdx_text(mdx_text: &str, escaped_text: &mut String) {
                 escaped_text.push(ch);
             }
         }
-        
+
         i += 1;
     }
 }
@@ -321,7 +345,7 @@ pub fn html_escape_mdx_text(mdx_text: &str, escaped_text: &mut String) {
 /// Extract text content from HTML using lol_html for efficient streaming parsing
 pub fn extract_text_from_html(html: &str) -> Result<String> {
     let text_content = RefCell::new(String::new());
-    
+
     // Create HTML rewriter settings with text handler
     let settings = Settings {
         element_content_handlers: vec![
@@ -337,28 +361,30 @@ pub fn extract_text_from_html(html: &str) -> Result<String> {
         ],
         ..Settings::default()
     };
-    
+
     // Create HTML rewriter and process the HTML
     let mut extracter = HtmlRewriter::new(settings, |_c: &[u8]| {
         // This callback is called for any content that wasn't handled by handlers
         // We don't need to do anything here since we're only interested in text
     });
-    
+
     // Process the HTML content
-    extracter.write(html.as_bytes())
+    extracter
+        .write(html.as_bytes())
         .map_err(|e| ZdbError::general_error(format!("HTML rewriting error: {}", e)))?;
-    
-    extracter.end()
+
+    extracter
+        .end()
         .map_err(|e| ZdbError::general_error(format!("HTML rewriting end error: {}", e)))?;
 
     let final_text = text_content.into_inner();
-    
+
     // Clean up whitespace
     let cleaned = final_text
         .split_whitespace()
         .collect::<Vec<&str>>()
         .join(" ");
-    
+
     Ok(cleaned)
 }
 

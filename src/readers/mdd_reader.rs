@@ -31,10 +31,12 @@ use std::io::BufReader;
 
 use url::Url;
 
-use crate::utils::io_utils::{bytes_from_file_url, file_url_exists, load_string_from_file_with_ext, open_file_url_as_reader};
-use crate::utils::url_utils;
 use super::zdb_reader::ZdbReader;
 use crate::Result;
+use crate::utils::io_utils::{
+    bytes_from_file_url, file_url_exists, load_string_from_file_with_ext, open_file_url_as_reader,
+};
+use crate::utils::url_utils;
 
 /// Reader for MDD (resource) files.
 ///
@@ -52,7 +54,11 @@ pub struct MddReader {
 
 impl Default for MddReader {
     fn default() -> Self {
-        Self {mdd_base_url: Url::parse("file:///").unwrap(), _db_name: String::new(), zdb_readers: RefCell::new(LinkedList::new())}
+        Self {
+            mdd_base_url: Url::parse("file:///").unwrap(),
+            _db_name: String::new(),
+            zdb_readers: RefCell::new(LinkedList::new()),
+        }
     }
 }
 
@@ -73,7 +79,7 @@ impl MddReader {
         let file_url = self.mdd_base_url.clone().join(file_name)?;
         if file_url_exists(&file_url) {
             Ok(bytes_from_file_url(&file_url)?)
-        }else{
+        } else {
             Ok(Vec::new())
         }
     }
@@ -106,23 +112,29 @@ impl MddReader {
         let license_data = load_string_from_file_with_ext(mdd_url, "key")?;
         if file_url_exists(&mdd_url) {
             let reader = open_file_url_as_reader(mdd_url)?;
-            let zdb_reader = ZdbReader::<BufReader<File>>::from_reader(reader, device_id, &license_data)?;
+            let zdb_reader =
+                ZdbReader::<BufReader<File>>::from_reader(reader, device_id, &license_data)?;
             zdb_readers.push_back(zdb_reader);
         }
-        let db_name= url_utils::get_decoded_file_stem(&mdd_url)?;
+        let db_name = url_utils::get_decoded_file_stem(&mdd_url)?;
 
-        let mdd_base_url= mdd_url.clone();
-        for i in 1..100{
+        let mdd_base_url = mdd_url.clone();
+        for i in 1..100 {
             let mdd_url = url_utils::with_extension(&mdd_base_url, &format!("{}.mdd", i))?; // File names are base.mdd, base.1.mdd, base.2.mdd, ...
             if file_url_exists(&mdd_url) {
                 let reader = open_file_url_as_reader(&mdd_url)?;
-                let zdb_reader = ZdbReader::<BufReader<File>>::from_reader(reader, device_id, &license_data)?;
+                let zdb_reader =
+                    ZdbReader::<BufReader<File>>::from_reader(reader, device_id, &license_data)?;
                 zdb_readers.push_back(zdb_reader);
             }
         }
-        Ok(Self {mdd_base_url, _db_name: db_name, zdb_readers: RefCell::new(zdb_readers)})
+        Ok(Self {
+            mdd_base_url,
+            _db_name: db_name,
+            zdb_readers: RefCell::new(zdb_readers),
+        })
     }
-    
+
     /// Gets resource data by file path, with optional override capability.
     ///
     /// This method first checks for overrides in the local filesystem, then searches
@@ -136,7 +148,11 @@ impl MddReader {
     /// # Returns
     ///
     /// Returns `Some(data)` if found, `None` if not found.
-    pub fn get_data_by_path(&mut self, file_path: &str, allow_override: bool) -> Result<Option<Vec<u8>>> {
+    pub fn get_data_by_path(
+        &mut self,
+        file_path: &str,
+        allow_override: bool,
+    ) -> Result<Option<Vec<u8>>> {
         if allow_override {
             let file_url = Url::parse(&format!("file://{}", file_path))?;
             let override_url = url_utils::join_url_path(&self.mdd_base_url, &file_url)?;
@@ -144,7 +160,7 @@ impl MddReader {
                 return Ok(Some(bytes_from_file_url(&override_url)?));
             }
         }
-        self.get_data_by_key(file_path)    
+        self.get_data_by_key(file_path)
     }
 
     /// Gets resource data by key from the MDD file(s).
@@ -174,9 +190,9 @@ impl MddReader {
             let result = zdb_reader.get_data_by_key(&actual_file_path);
             match result {
                 Ok(data) => {
-                    if data.is_some(){
+                    if data.is_some() {
                         return Ok(data);
-                    }else {
+                    } else {
                         // Key not found
                         continue;
                     }
