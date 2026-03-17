@@ -63,7 +63,7 @@ regex = "^1.11.1"
 ripemd128 = "^0.1.2"
 uuid = { version = "^1.17.0", features = ["v4"] }
 chrono = "^0.4.41"
-lol_html = "^2.6.0"
+lol_html = "2.7"
 tantivy = "^0.25.0"
 zip = { version = "6.0.0", default-features = false, features = ["deflate"] }
 walkdir = "^2.4.0"
