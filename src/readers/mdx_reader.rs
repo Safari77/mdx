@@ -121,19 +121,17 @@ impl MdxReader {
             ZdbReader::<BufReader<File>>::from_reader(reader, device_id, &license_data)?;
 
         // Try to initialize data_db, but allow it to fail
-        let data_db = match MddReader::from_url(
-            &with_extension(&mdx_url, MDICT_MDD_EXT)?,
-            device_id,
-        ) {
-            Ok(db) => Some(db),
-            Err(e) => {
-                warn!(
+        let data_db =
+            match MddReader::from_url(&with_extension(&mdx_url, MDICT_MDD_EXT)?, device_id) {
+                Ok(db) => Some(db),
+                Err(e) => {
+                    warn!(
                     "Failed to load MDD data database: {}. Data resources will not be available.",
                     e
                 );
-                None
-            }
-        };
+                    None
+                }
+            };
 
         let db_name = url_utils::get_decoded_file_stem(&mdx_url)?;
         let compact_stylesheet =
@@ -425,7 +423,7 @@ impl MdxReader {
         // Check if .idx file exists first, then fall back to directory
         if idx_path.exists() {
             if idx_path.is_file() {
-                let zip_directory = ZipDirectory::open(idx_path);
+                let zip_directory = ZipDirectory::open(idx_path)?;
                 Index::open(Box::new(zip_directory) as Box<dyn tantivy::directory::Directory>)
                     .map_err(|e| {
                         ZdbError::general_error(format!("Failed to open packed FTS index: {}", e))
