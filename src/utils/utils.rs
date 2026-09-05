@@ -113,11 +113,6 @@ pub fn move_element<T>(list: &mut LinkedList<T>, pos: usize, new_pos: usize) {
     }
 }
 
-#[inline]
-fn string_from_slice(utf8: &[u8]) -> String {
-    String::from_utf8_lossy(utf8).into_owned()
-}
-
 pub fn simple_xml_to_json(xml: &str) -> Result<serde_json::Value> {
     let mut reader = quick_xml::Reader::from_str(xml);
     let mut json_map = Map::new();
@@ -125,13 +120,13 @@ pub fn simple_xml_to_json(xml: &str) -> Result<serde_json::Value> {
     loop {
         match reader.read_event() {
             Ok(Event::Empty(ref e)) => {
-                let name = string_from_slice(e.name().as_ref());
+                let name = e.name().as_ref().to_string();
                 let mut attrs = Map::new();
                 for attr in e.attributes() {
                     match attr {
                         Ok(attr) => {
-                            let key = string_from_slice(attr.key.as_ref());
-                            let value = string_from_slice(&attr.value);
+                            let key = attr.key.as_ref().to_string();
+                            let value = attr.value.into_owned();
                             attrs.insert(key, Value::String(value));
                         }
                         _ => {

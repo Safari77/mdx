@@ -284,6 +284,7 @@ fn generate_locale_id(encoding_label: &str, key_case_sensitive: bool, strip_key:
 
     locale_id
 }
+
 impl DbInfo {
     pub fn from_xml(xml: &str) -> Result<Self> {
         let mut db_info = DbInfo::default();
@@ -301,14 +302,7 @@ impl DbInfo {
             match event {
                 Event::Start(e) | Event::Empty(e) => {
                     if root_name.is_empty() {
-                        root_name = std::str::from_utf8(e.name().as_ref())
-                            .map_err(|e| {
-                                ZdbError::invalid_data_format(format!(
-                                    "Invalid UTF-8 in XML: {}",
-                                    e
-                                ))
-                            })?
-                            .to_string();
+                        root_name = e.name().as_ref().to_string();
 
                         // Collect all attributes into a Vec<(String, String)>
                         for attr_result in e.attributes() {
@@ -318,22 +312,8 @@ impl DbInfo {
                                     e
                                 ))
                             })?;
-                            let key = std::str::from_utf8(attr.key.as_ref())
-                                .map_err(|e| {
-                                    ZdbError::invalid_data_format(format!(
-                                        "Invalid UTF-8 in attribute key: {}",
-                                        e
-                                    ))
-                                })?
-                                .to_string();
-                            let value = std::str::from_utf8(attr.value.as_ref())
-                                .map_err(|e| {
-                                    ZdbError::invalid_data_format(format!(
-                                        "Invalid UTF-8 in attribute value: {}",
-                                        e
-                                    ))
-                                })?
-                                .to_string();
+                            let key = attr.key.as_ref().to_string();
+                            let value = attr.value.into_owned();
                             root_attrs.push((key, value));
                         }
                         break;
