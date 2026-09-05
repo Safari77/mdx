@@ -1581,7 +1581,7 @@ dependencies = [
 
 [[package]]
 name = "mdx"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "adler2",
  "bytemuck",
