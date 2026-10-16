@@ -81,12 +81,12 @@ impl ZipDirectory {
                 && !entry.is_dir()
                 && entry.compression() == zip::CompressionMethod::Stored
                 && let Some(offset) = entry.data_start()
+                && let Ok(name) = entry.name()
             {
-                let name = entry.name().to_string();
+                let name = name.into_owned();
                 entries.insert(name, ZipEntryInfo { offset, size: entry.size() });
             }
         }
-
         Ok(Self { file: Arc::new(file), entries: Arc::new(entries) })
     }
 

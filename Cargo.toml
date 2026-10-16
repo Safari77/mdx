@@ -63,7 +63,7 @@ uuid = { version = "1.22", features = ["v4"] }
 chrono = "0.4"
 lol_html = "3"
 tantivy = "0.26"
-zip = { version = "8", default-features = false, features = ["deflate", "deflate64"] }
+zip = { version = "9", default-features = false, features = ["deflate", "deflate64"] }
 walkdir = "2.5"
 shellexpand = "^3.1.0"
 mime_guess = "^2.0.0"
